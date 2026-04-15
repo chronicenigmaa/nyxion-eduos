@@ -21,41 +21,32 @@ SYSTEM_PROMPTS = {
 @router.post("/generate")
 async def generate(request: AIRequest, current_user: User = Depends(get_current_user)):
     system_prompt = SYSTEM_PROMPTS.get(request.type, SYSTEM_PROMPTS["general"])
-    api_key = os.getenv("GEMINI_API_KEY", "")
+    api_key = os.getenv("OPENAI_API_KEY", "")
 
     if not api_key:
-        raise HTTPException(status_code=503, detail="AI service not configured. Add GEMINI_API_KEY.")
+        raise HTTPException(status_code=503, detail="AI service not configured.")
 
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={api_key}",
-                headers={"Content-Type": "application/json"},
+                "https://api.openai.com/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                },
                 json={
-                    "contents": [
-                        {
-                            "parts": [
-                                {"text": f"{system_prompt}\n\n{request.prompt}"}
-                            ]
-                        }
+                    "model": "gpt-4o-mini",
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": request.prompt}
                     ],
-                    "generationConfig": {
-                        "temperature": 0.7,
-                        "maxOutputTokens": 1024
-                    }
+                    "max_tokens": 1024
                 }
             )
             result = response.json()
-
-            if "candidates" not in result:
-                raise HTTPException(status_code=503, detail=f"Gemini error: {result}")
-
-            text = result["candidates"][0]["content"]["parts"][0]["text"]
             return {
-                "response": text,
-                "model": "Gemini 1.5 Flash"
+                "response": result["choices"][0]["message"]["content"],
+                "model": "GPT-4o Mini"
             }
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"AI error: {str(e)}")
