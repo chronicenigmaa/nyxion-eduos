@@ -37,7 +37,7 @@ export default function AIPage() {
     <div className="p-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-          <Brain className="text-purple-400" size={28} /> AI Tools
+          <Brain className="text-blue-500" size={28} /> AI Tools
         </h1>
         <p className="text-slate-400 mt-1">Powered by local AI — your data never leaves your server</p>
       </div>
@@ -50,7 +50,7 @@ export default function AIPage() {
             onClick={() => { setType(t.type); setPrompt(""); setResponse(""); }}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
               type === t.type
-                ? "bg-purple-500 text-white"
+                ? "bg-blue-600 text-white"
                 : "bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700"
             }`}
           >
@@ -73,7 +73,7 @@ export default function AIPage() {
           <button
             onClick={generate}
             disabled={loading}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-500 hover:bg-purple-400 text-white text-sm font-medium disabled:opacity-50 transition-all"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium disabled:opacity-50 transition-all"
           >
             {loading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
             {loading ? "Generating..." : "Generate"}
@@ -83,10 +83,10 @@ export default function AIPage() {
 
       {/* Response */}
       {response && (
-        <div className="bg-slate-800/50 rounded-2xl border border-purple-500/20 p-6">
+        <div className="bg-slate-800/50 rounded-2xl border border-blue-600/20 p-6">
           <div className="flex items-center gap-2 mb-4">
-            <Sparkles size={16} className="text-purple-400" />
-            <span className="text-purple-400 text-sm font-medium">AI Response</span>
+            <Sparkles size={16} className="text-blue-500" />
+            <span className="text-blue-500 text-sm font-medium">AI Response</span>
           </div>
           <pre className="text-slate-300 text-sm whitespace-pre-wrap font-sans leading-relaxed">{response}</pre>
         </div>

@@ -5,19 +5,24 @@ import { useAuth } from "@/context/AuthContext";
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen,
   ClipboardList, DollarSign, MessageSquare, Brain,
-  Building2, LogOut, ChevronRight
+  Building2, LogOut, ChevronRight, FileText, TrendingUp,
+  BookMarked, Calendar
 } from "lucide-react";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/students", label: "Students", icon: GraduationCap },
-  { href: "/dashboard/teachers", label: "Teachers", icon: Users },
-  { href: "/dashboard/academics", label: "Academics", icon: BookOpen },
-  { href: "/dashboard/attendance", label: "Attendance", icon: ClipboardList },
-  { href: "/dashboard/finance", label: "Finance", icon: DollarSign },
-  { href: "/dashboard/communication", label: "WhatsApp", icon: MessageSquare },
-  { href: "/dashboard/ai", label: "AI Tools", icon: Brain },
-  { href: "/dashboard/schools", label: "Schools", icon: Building2, superAdminOnly: true },
+  { href: "/dashboard",             label: "Dashboard",      icon: LayoutDashboard },
+  { href: "/dashboard/students",    label: "Students",       icon: GraduationCap },
+  { href: "/dashboard/teachers",    label: "Teachers",       icon: Users },
+  { href: "/dashboard/attendance",  label: "Attendance",     icon: ClipboardList },
+  { href: "/dashboard/assignments", label: "Assignments",    icon: FileText },
+  { href: "/dashboard/results",     label: "Results",        icon: TrendingUp },
+  { href: "/dashboard/coursebooks", label: "Course Books",   icon: BookOpen },
+  { href: "/dashboard/academics",   label: "Academics",      icon: BookMarked },
+  { href: "/dashboard/timetable",   label: "Timetable",      icon: Calendar },
+  { href: "/dashboard/finance",     label: "Finance",        icon: DollarSign },
+  { href: "/dashboard/communication",label: "WhatsApp",      icon: MessageSquare },
+  { href: "/dashboard/ai",          label: "AI Tools",       icon: Brain },
+  { href: "/dashboard/schools",     label: "Schools",        icon: Building2, superAdminOnly: true },
 ];
 
 export default function Sidebar() {
@@ -33,7 +38,7 @@ export default function Sidebar() {
       {/* Logo */}
       <div className="p-6 border-b border-slate-800">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-purple-500 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center">
             <span className="text-white font-bold text-sm">N</span>
           </div>
           <div>
@@ -46,7 +51,7 @@ export default function Sidebar() {
       {/* Role badge */}
       <div className="px-4 py-3 border-b border-slate-800">
         <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-          user?.role === "super_admin" ? "bg-purple-500/20 text-purple-300" :
+          user?.role === "super_admin" ? "bg-blue-600/20 text-blue-400" :
           user?.role === "school_admin" ? "bg-blue-500/20 text-blue-300" :
           "bg-green-500/20 text-green-300"
         }`}>
@@ -65,7 +70,7 @@ export default function Sidebar() {
               href={href}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all group ${
                 active
-                  ? "bg-purple-500 text-white"
+                  ? "bg-blue-600 text-white"
                   : "text-slate-400 hover:bg-slate-800 hover:text-white"
               }`}
             >

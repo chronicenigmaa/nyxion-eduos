@@ -33,7 +33,7 @@ export default function DashboardPage() {
   ];
 
   const colorMap: Record<string, string> = {
-    purple: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+    purple: "bg-blue-600/10 text-blue-500 border-blue-600/20",
     blue: "bg-blue-500/10 text-blue-400 border-blue-500/20",
     green: "bg-green-500/10 text-green-400 border-green-500/20",
     amber: "bg-amber-500/10 text-amber-400 border-amber-500/20",
@@ -80,7 +80,7 @@ export default function DashboardPage() {
               <a
                 key={a.label}
                 href={a.href}
-                className="p-4 rounded-xl bg-slate-700/50 hover:bg-purple-500/10 border border-slate-600 hover:border-purple-500/30 text-slate-300 hover:text-purple-300 text-sm font-medium transition-all"
+                className="p-4 rounded-xl bg-slate-700/50 hover:bg-blue-600/10 border border-slate-600 hover:border-blue-600/30 text-slate-300 hover:text-blue-400 text-sm font-medium transition-all"
               >
                 {a.label} →
               </a>

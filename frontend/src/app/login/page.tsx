@@ -34,38 +34,37 @@ const handleLogin = async (e: React.FormEvent) => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 ...">      <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-purple-500 mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 mb-4">
             <span className="text-2xl font-bold text-white">N</span>
           </div>
           <h1 className="text-3xl font-bold text-white">Nyxion EduOS</h1>
-          <p className="text-purple-300 mt-1">AI-native School Operating System</p>
+          <p className="text-blue-400 mt-1">AI-native School Operating System</p>
         </div>
 
         {/* Login Card */}
         <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20">
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-purple-200 mb-1">Email</label>
+              <label className="block text-sm font-medium text-blue-200 mb-1">Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="admin@school.edu.pk"
                 required
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-purple-200 mb-1">Password</label>
+              <label className="block text-sm font-medium text-blue-200 mb-1">Password</label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="••••••••"
                 required
               />
@@ -73,7 +72,7 @@ const handleLogin = async (e: React.FormEvent) => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-xl bg-purple-500 hover:bg-purple-400 text-white font-semibold transition-all disabled:opacity-50"
+              className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-all disabled:opacity-50"
             >
               {loading ? "Signing in..." : "Sign In"}
             </button>
@@ -81,13 +80,13 @@ const handleLogin = async (e: React.FormEvent) => {
 
           {/* Demo quick logins */}
           <div className="mt-6">
-            <p className="text-purple-300 text-xs text-center mb-3">Demo accounts (password: admin123)</p>
+            <p className="text-blue-400 text-xs text-center mb-3">Demo accounts (password: admin123)</p>
             <div className="grid grid-cols-2 gap-2">
               {demoLogins.map((d) => (
                 <button
                   key={d.email}
                   onClick={() => { setEmail(d.email); setPassword("admin123"); }}
-                  className="text-xs py-2 px-3 rounded-lg bg-white/5 hover:bg-white/10 text-purple-300 border border-white/10 transition-all text-left"
+                  className="text-xs py-2 px-3 rounded-lg bg-white/5 hover:bg-white/10 text-blue-400 border border-white/10 transition-all text-left"
                 >
                   <span className="font-medium text-white">{d.label}</span>
                   <br />{d.email}
