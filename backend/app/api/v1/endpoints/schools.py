@@ -64,7 +64,8 @@ def update_package(school_id: uuid.UUID, data: PackageUpdate, db: Session = Depe
     if not school:
         raise HTTPException(status_code=404, detail="Not found")
     school.package = data.package
-    school.features = normalize_feature_overrides(data.package, school.features)
+    # Reset to package defaults on package change; manual per-feature changes can be re-applied after.
+    school.features = {}
     db.commit()
     return {"message": f"Package updated to {data.package}", "features": get_school_features(school)}
 
