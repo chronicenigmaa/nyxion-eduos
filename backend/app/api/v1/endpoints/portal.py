@@ -4,7 +4,7 @@ from app.core.database import get_db
 from app.models.user import User, UserRole
 from app.models.student import Student
 from app.models.assignment import Assignment
-from app.model.submission import Submission, SubmissionStatus
+from app.models.submission import Submission, SubmissionStatus
 from app.models.result import Result
 from app.models.attendance import Attendance, AttendanceStatus
 from app.models.fee import Fee, FeeStatus
