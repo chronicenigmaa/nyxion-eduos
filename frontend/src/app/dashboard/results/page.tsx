@@ -4,10 +4,30 @@ import api from "@/lib/api";
 import toast from "react-hot-toast";
 import { Plus, Search, TrendingUp, AlertCircle, Lightbulb, BarChart2 } from "lucide-react";
 import AIInsightsPanel from "@/components/AIInsightsPanel";
+import ExportButton from "@/components/ExportButton";
+
+type ResultRow = {
+  id: string;
+  student_name: string;
+  subject_name: string;
+  exam_type: string;
+  term: string;
+  class_name: string;
+  total_marks: number;
+  marks_obtained: number;
+  percentage: number;
+  grade: string;
+};
+
+type StudentOption = {
+  id: string;
+  full_name: string;
+  roll_number: string;
+};
 
 export default function ResultsPage() {
-  const [results, setResults] = useState<any[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
+  const [results, setResults] = useState<ResultRow[]>([]);
+  const [students, setStudents] = useState<StudentOption[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -48,9 +68,12 @@ export default function ResultsPage() {
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
         <div><h1 className="text-2xl font-bold text-slate-900">Results</h1><p className="text-slate-500">{results.length} records</p></div>
-        <button onClick={()=>setShowForm(!showForm)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-all">
-          <Plus size={16}/> Add Result
-        </button>
+        <div className="flex items-center gap-2">
+          <ExportButton title="Results Report" data={filtered} filename="results-report" />
+          <button onClick={()=>setShowForm(!showForm)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-all">
+            <Plus size={16}/> Add Result
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-4 gap-4 mb-6">
@@ -67,7 +90,7 @@ export default function ResultsPage() {
             {["A+","A","B","C","D","F"].map(g=>{
               const count = results.filter(r=>r.grade===g).length;
               const pct = results.length>0?(count/results.length)*100:0;
-              const colors:any = {"A+":"bg-green-500","A":"bg-green-400","B":"bg-blue-400","C":"bg-amber-400","D":"bg-orange-400","F":"bg-red-400"};
+              const colors: Record<string, string> = {"A+":"bg-green-500","A":"bg-green-400","B":"bg-blue-400","C":"bg-amber-400","D":"bg-orange-400","F":"bg-red-400"};
               return (
                 <div key={g} className="flex-1 flex flex-col items-center gap-1">
                   <span className="text-slate-500 text-xs font-medium">{count}</span>

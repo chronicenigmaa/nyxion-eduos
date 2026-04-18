@@ -4,6 +4,7 @@ import api from "@/lib/api";
 import toast from "react-hot-toast";
 import { Plus, Trash2, Search, Users, TrendingUp, AlertCircle, Lightbulb, BarChart2 } from "lucide-react";
 import AIInsightsPanel from "@/components/AIInsightsPanel";
+import ExportButton from "@/components/ExportButton";
 
 interface Teacher { id: string; full_name: string; email: string; phone: string; subject: string; qualification: string; salary: string; }
 
@@ -52,9 +53,12 @@ export default function TeachersPage() {
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
         <div><h1 className="text-2xl font-bold text-slate-900">Teachers</h1><p className="text-slate-500">{teachers.length} staff members</p></div>
-        <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-all">
-          <Plus size={16} /> Add Teacher
-        </button>
+        <div className="flex items-center gap-2">
+          <ExportButton title="Teachers Report" data={filtered} filename="teachers-report" />
+          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-all">
+            <Plus size={16} /> Add Teacher
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4 mb-6">

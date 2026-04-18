@@ -4,6 +4,7 @@ import api from "@/lib/api";
 import toast from "react-hot-toast";
 import { Plus, CheckCircle, Search, TrendingUp, AlertCircle, Lightbulb, DollarSign } from "lucide-react";
 import AIInsightsPanel from "@/components/AIInsightsPanel";
+import ExportButton from "@/components/ExportButton";
 
 interface Fee { id: string; student_name: string; roll_number: string; amount: number; paid_amount: number; month: string; year: string; status: string; }
 interface StudentOption { id: string; full_name: string; roll_number: string; }
@@ -69,9 +70,12 @@ export default function FinancePage() {
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
         <div><h1 className="text-2xl font-bold text-slate-900">Finance</h1><p className="text-slate-500">{rate}% collection rate</p></div>
-        <button onClick={()=>setShowForm(!showForm)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-all">
-          <Plus size={16}/> Add Fee
-        </button>
+        <div className="flex items-center gap-2">
+          <ExportButton title="Finance Report" data={filtered} filename="finance-report" />
+          <button onClick={()=>setShowForm(!showForm)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-all">
+            <Plus size={16}/> Add Fee
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

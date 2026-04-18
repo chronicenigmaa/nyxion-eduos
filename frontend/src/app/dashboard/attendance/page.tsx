@@ -4,6 +4,7 @@ import api from "@/lib/api";
 import toast from "react-hot-toast";
 import { Save, TrendingUp, AlertCircle, Users, Lightbulb } from "lucide-react";
 import AIInsightsPanel from "@/components/AIInsightsPanel";
+import ExportButton from "@/components/ExportButton";
 
 interface AttendanceRecord { student_id: string; student_name: string; roll_number: string; class_name: string; status: string; }
 
@@ -69,6 +70,13 @@ export default function AttendancePage() {
       <div className="flex items-center justify-between mb-6">
         <div><h1 className="text-2xl font-bold text-slate-900">Attendance</h1><p className="text-slate-500">{rate}% rate today</p></div>
         <div className="flex items-center gap-2">
+          <ExportButton title="Attendance Report" data={filteredRecords.map((record) => ({
+            roll_number: record.roll_number,
+            student_name: record.student_name,
+            class_name: record.class_name,
+            status: attendance[record.student_id] || record.status,
+            date,
+          }))} filename="attendance-report" />
           <input type="date" value={date} onChange={e=>setDate(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           <button onClick={save} disabled={saving} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium disabled:opacity-50 transition-all">
             <Save size={16} /> {saving ? "Saving..." : "Save"}
