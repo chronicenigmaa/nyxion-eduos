@@ -6,22 +6,36 @@ import { Plus, CheckCircle, Search, TrendingUp, AlertCircle, Lightbulb, DollarSi
 import AIInsightsPanel from "@/components/AIInsightsPanel";
 
 interface Fee { id: string; student_name: string; roll_number: string; amount: number; paid_amount: number; month: string; year: string; status: string; }
+interface StudentOption { id: string; full_name: string; roll_number: string; }
 
 export default function FinancePage() {
   const [fees, setFees] = useState<Fee[]>([]);
   const [summary, setSummary] = useState({ total:0, paid:0, pending:0, overdue:0, total_amount:0, collected:0 });
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [students, setStudents] = useState<any[]>([]);
+  const [students, setStudents] = useState<StudentOption[]>([]);
   const [filter, setFilter] = useState("");
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({ student_id:"", amount:"", month:new Date().toLocaleString("default",{month:"long"}), year:new Date().getFullYear().toString() });
 
   const load = async () => {
     try {
-      const [f,s,st] = await Promise.all([api.get("/api/v1/fees/"+(filter?"?status="+filter:"")), api.get("/api/v1/fees/summary"), api.get("/api/v1/students/")]);
-      setFees(f.data); setSummary(s.data); setStudents(st.data);
-    } catch { toast.error("Failed"); }
+      const [feesRes, summaryRes, studentsRes] = await Promise.allSettled([
+        api.get("/api/v1/fees/"+(filter?"?status="+filter:"")),
+        api.get("/api/v1/fees/summary"),
+        api.get("/api/v1/students/"),
+      ]);
+
+      if (feesRes.status === "fulfilled") setFees(feesRes.value.data as Fee[]);
+      if (summaryRes.status === "fulfilled") setSummary(summaryRes.value.data as typeof summary);
+      if (studentsRes.status === "fulfilled") setStudents(studentsRes.value.data as StudentOption[]);
+
+      if ([feesRes, summaryRes, studentsRes].some((result) => result.status === "rejected")) {
+        toast.error("Some finance data could not be loaded.");
+      }
+    } catch {
+      toast.error("Failed to load finance.");
+    }
     finally { setLoading(false); }
   };
   useEffect(() => { load(); }, [filter]);

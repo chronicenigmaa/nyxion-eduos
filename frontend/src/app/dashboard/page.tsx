@@ -26,13 +26,19 @@ export default function DashboardPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [s, t, sc] = await Promise.all([
+        const [studentsRes, teachersRes, schoolsRes] = await Promise.allSettled([
           api.get("/api/v1/students/"),
           api.get("/api/v1/teachers/"),
           api.get("/api/v1/schools/"),
         ]);
-        setStats({ students: s.data.length, teachers: t.data.length, schools: sc.data.length });
-        setSchools(sc.data as SchoolSummary[]);
+        const nextStudents = studentsRes.status === "fulfilled" ? studentsRes.value.data.length : 0;
+        const nextTeachers = teachersRes.status === "fulfilled" ? teachersRes.value.data.length : 0;
+        const nextSchools = schoolsRes.status === "fulfilled" ? schoolsRes.value.data.length : 0;
+
+        setStats({ students: nextStudents, teachers: nextTeachers, schools: nextSchools });
+        if (schoolsRes.status === "fulfilled") {
+          setSchools(schoolsRes.value.data as SchoolSummary[]);
+        }
       } catch {}
     };
     load();

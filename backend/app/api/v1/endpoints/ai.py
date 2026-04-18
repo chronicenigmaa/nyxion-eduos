@@ -60,6 +60,12 @@ SYSTEM_PROMPTS = {
     "academic": "You are a school academic director. Analyze academic data and provide clear insights with specific recommendations for improvement in a Pakistani school context.",
 }
 
+TYPE_FEATURE_MAP = {
+    "exam": "exam_generator",
+    "lesson_plan": "lesson_planner",
+    "announcement": "notice_writer",
+}
+
 async def call_ai(system: str, prompt: str, max_tokens: int = 2048) -> str:
     api_key = os.getenv("GROQ_API_KEY", "")
     if not api_key:
@@ -94,8 +100,18 @@ def check_feature(school: Optional[School], feature: str) -> bool:
     features = get_school_features(school)
     return features.get(feature, False)
 
+
+def require_feature_for_type(db: Session, current_user: User, request_type: str):
+    feature = TYPE_FEATURE_MAP.get(request_type)
+    if not feature or not current_user.school_id:
+        return
+    school = db.query(School).filter(School.id == current_user.school_id).first()
+    if school and not check_feature(school, feature):
+        raise HTTPException(status_code=403, detail=f"{feature.replace('_', ' ')} is disabled for your school")
+
 @router.post("/generate")
 async def generate(request: AIRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    require_feature_for_type(db, current_user, request.type)
     system = SYSTEM_PROMPTS.get(request.type, SYSTEM_PROMPTS["general"])
     response = await call_ai(system, request.prompt)
     return {"response": response, "model": "Llama 3.3 70B"}

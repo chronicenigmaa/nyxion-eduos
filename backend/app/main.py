@@ -60,6 +60,18 @@ DEMO_USERS = [
 ]
 
 
+def ensure_columns(table_name, column_specs):
+    inspector = inspect(engine)
+    if table_name not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns(table_name)}
+    with engine.begin() as conn:
+        for column_name, ddl in column_specs.items():
+            if column_name not in existing_columns:
+                conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {ddl}"))
+
+
 def ensure_school_schema():
     inspector = inspect(engine)
     if "schools" not in inspector.get_table_names():
@@ -96,6 +108,66 @@ def ensure_school_schema():
             text("UPDATE schools SET features = CAST(:features AS JSON) WHERE features IS NULL"),
             {"features": default_features_json},
         )
+
+
+def ensure_core_schema():
+    ensure_columns(
+        "students",
+        {
+            "father_name": "VARCHAR(255)",
+            "class_name": "VARCHAR(50)",
+            "section": "VARCHAR(10)",
+            "date_of_birth": "DATE",
+            "phone": "VARCHAR(50)",
+            "address": "TEXT",
+            "is_active": "BOOLEAN DEFAULT TRUE",
+            "created_at": "TIMESTAMP",
+            "email": "VARCHAR(255)",
+        },
+    )
+    ensure_columns(
+        "teachers",
+        {
+            "email": "VARCHAR(255)",
+            "phone": "VARCHAR(50)",
+            "subject": "VARCHAR(100)",
+            "qualification": "VARCHAR(255)",
+            "date_of_joining": "DATE",
+            "salary": "VARCHAR(50)",
+            "is_active": "BOOLEAN DEFAULT TRUE",
+            "created_at": "TIMESTAMP",
+        },
+    )
+    ensure_columns(
+        "subjects",
+        {
+            "class_name": "VARCHAR(50)",
+            "teacher_id": "UUID",
+            "description": "TEXT",
+            "is_active": "BOOLEAN DEFAULT TRUE",
+            "created_at": "TIMESTAMP",
+        },
+    )
+    ensure_columns(
+        "fees",
+        {
+            "month": "VARCHAR(20)",
+            "year": "VARCHAR(10)",
+            "status": "VARCHAR(20) DEFAULT 'pending'",
+            "paid_amount": "DOUBLE PRECISION DEFAULT 0",
+            "due_date": "TIMESTAMP",
+            "paid_date": "TIMESTAMP",
+            "remarks": "TEXT",
+            "created_at": "TIMESTAMP",
+        },
+    )
+
+    with engine.begin() as conn:
+        conn.execute(text("UPDATE students SET is_active = TRUE WHERE is_active IS NULL"))
+        conn.execute(text("UPDATE teachers SET is_active = TRUE WHERE is_active IS NULL"))
+        conn.execute(text("UPDATE subjects SET is_active = TRUE WHERE is_active IS NULL"))
+        conn.execute(text("UPDATE fees SET status = 'pending' WHERE status IS NULL"))
+        conn.execute(text("UPDATE fees SET paid_amount = 0 WHERE paid_amount IS NULL"))
 
 
 def ensure_demo_data():
@@ -148,6 +220,7 @@ def ensure_demo_data():
 
 
 ensure_school_schema()
+ensure_core_schema()
 ensure_demo_data()
 
 app = FastAPI(

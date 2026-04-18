@@ -5,20 +5,40 @@ import toast from "react-hot-toast";
 import { Plus, TrendingUp, AlertCircle, Lightbulb, BarChart2 } from "lucide-react";
 import AIInsightsPanel from "@/components/AIInsightsPanel";
 
+type Subject = { id: string; name: string; class_name?: string | null; description?: string | null };
+type ClassSummary = { class_name: string; sections?: string[] };
+type Teacher = { id: string; full_name: string };
+type Student = { id: string; class_name?: string | null };
+
 export default function AcademicsPage() {
-  const [subjects, setSubjects] = useState<any[]>([]);
-  const [classes, setClasses] = useState<any[]>([]);
-  const [teachers, setTeachers] = useState<any[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [classes, setClasses] = useState<ClassSummary[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ name:"", class_name:"", teacher_id:"", description:"" });
 
   const load = async () => {
     try {
-      const [s,cl,t,st] = await Promise.all([api.get("/api/v1/academics/subjects"),api.get("/api/v1/academics/classes"),api.get("/api/v1/teachers/"),api.get("/api/v1/students/")]);
-      setSubjects(s.data); setClasses(cl.data); setTeachers(t.data); setStudents(st.data);
-    } catch { toast.error("Failed"); }
+      const [subjectsRes, classesRes, teachersRes, studentsRes] = await Promise.allSettled([
+        api.get("/api/v1/academics/subjects"),
+        api.get("/api/v1/academics/classes"),
+        api.get("/api/v1/teachers/"),
+        api.get("/api/v1/students/"),
+      ]);
+
+      if (subjectsRes.status === "fulfilled") setSubjects(subjectsRes.value.data as Subject[]);
+      if (classesRes.status === "fulfilled") setClasses(classesRes.value.data as ClassSummary[]);
+      if (teachersRes.status === "fulfilled") setTeachers(teachersRes.value.data as Teacher[]);
+      if (studentsRes.status === "fulfilled") setStudents(studentsRes.value.data as Student[]);
+
+      if ([subjectsRes, classesRes, teachersRes, studentsRes].some((result) => result.status === "rejected")) {
+        toast.error("Some academic data could not be loaded.");
+      }
+    } catch {
+      toast.error("Failed to load academics.");
+    }
     finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);
@@ -29,7 +49,7 @@ export default function AcademicsPage() {
     catch { toast.error("Failed"); }
   };
 
-  const acSummary = "Students: "+students.length+", Classes: "+classes.map((c:any)=>"Class "+c.class_name).join(", ")+", Subjects: "+subjects.map((s:any)=>s.name).join(", ")+", Teachers: "+teachers.length;
+  const acSummary = "Students: "+students.length+", Classes: "+classes.map((c)=>"Class "+c.class_name).join(", ")+", Subjects: "+subjects.map((s)=>s.name).join(", ")+", Teachers: "+teachers.length;
   const aiOptions = [
     { label: "Academic Overview", icon: BarChart2, type: "academic", prompt: "Analyze academic structure: "+acSummary+". Provide an overview for school management." },
     { label: "Curriculum Gaps", icon: AlertCircle, type: "academic", prompt: "Identify curriculum gaps for a Pakistani school: "+acSummary+". What subjects are missing?" },
@@ -63,7 +83,7 @@ export default function AcademicsPage() {
             <div><label className="block text-xs text-slate-500 mb-1">Teacher</label>
               <select value={form.teacher_id} onChange={e=>setForm({...form,teacher_id:e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-900 text-sm focus:outline-none">
                 <option value="">Select teacher</option>
-                {teachers.map((t:any)=><option key={t.id} value={t.id}>{t.full_name}</option>)}
+                {teachers.map((t)=><option key={t.id} value={t.id}>{t.full_name}</option>)}
               </select>
             </div>
             <div><label className="block text-xs text-slate-500 mb-1">Description</label><input value={form.description} onChange={e=>setForm({...form,description:e.target.value})} className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/></div>
@@ -80,10 +100,10 @@ export default function AcademicsPage() {
           <h2 className="text-slate-900 font-semibold mb-4">Classes</h2>
           {loading?<p className="text-slate-400 text-sm">Loading...</p>
             :classes.length===0?<p className="text-slate-400 text-sm">No classes yet</p>
-            :classes.map((cl:any)=>(
+            :classes.map((cl)=>(
               <div key={cl.class_name} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
                 <div><p className="text-slate-900 text-sm font-medium">Class {cl.class_name}</p><p className="text-slate-400 text-xs">Sections: {cl.sections?.join(", ")||"-"}</p></div>
-                <span className="px-3 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium">{students.filter((s:any)=>s.class_name===cl.class_name).length} students</span>
+                <span className="px-3 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium">{students.filter((s)=>s.class_name===cl.class_name).length} students</span>
               </div>
             ))}
         </div>
@@ -91,7 +111,7 @@ export default function AcademicsPage() {
           <h2 className="text-slate-900 font-semibold mb-4">Subjects</h2>
           {loading?<p className="text-slate-400 text-sm">Loading...</p>
             :subjects.length===0?<p className="text-slate-400 text-sm">No subjects yet</p>
-            :subjects.map((s:any)=>(
+            :subjects.map((s)=>(
               <div key={s.id} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
                 <div><p className="text-slate-900 text-sm font-medium">{s.name}</p><p className="text-slate-400 text-xs">{s.description||"No description"}</p></div>
                 <span className="px-3 py-1 rounded-lg bg-green-50 text-green-700 text-xs font-medium">Class {s.class_name||"All"}</span>
