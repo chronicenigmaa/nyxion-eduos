@@ -38,6 +38,25 @@ PACKAGE_FEATURES = {
     "elite": "all"
 }
 
+def get_school_features(school) -> dict:
+    package = (school.package or "starter").lower()
+
+    if package == "elite":
+        return dict(DEFAULT_FEATURES)
+
+    enabled = PACKAGE_FEATURES.get(package, PACKAGE_FEATURES["starter"])
+
+    features = {key: False for key in DEFAULT_FEATURES.keys()}
+    for feature in enabled:
+        if feature in features:
+            features[feature] = True
+
+    # allow per-school overrides saved in DB
+    if school.features:
+        features.update(school.features)
+
+    return features
+
 class School(Base):
     __tablename__ = "schools"
 
