@@ -8,6 +8,29 @@ from typing import Optional
 import httpx
 import os
 
+from app.models.school import School
+
+PACKAGE_FEATURES = {
+    "starter": ["exam_generator", "lesson_planner", "notice_writer", "attendance_analysis"],
+    "growth":  ["exam_generator", "lesson_planner", "notice_writer", "attendance_analysis",
+                "fee_defaulter_prediction", "report_card_generator", "homework_generator",
+                "exam_analyser", "parent_messages"],
+    "elite":   "all"
+}
+
+def check_feature(school: School, feature: str) -> bool:
+    if not school:
+        return True  # super admin bypasses
+    package = school.package or "starter"
+    allowed = PACKAGE_FEATURES.get(package, [])
+    if allowed == "all":
+        return True
+    # Also check individual toggles
+    overrides = school.features or {}
+    if feature in overrides:
+        return overrides[feature]
+    return feature in allowed
+
 router = APIRouter()
 
 class AIRequest(BaseModel):
