@@ -72,6 +72,31 @@ def ensure_columns(table_name, column_specs):
                 conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {ddl}"))
 
 
+def get_postgres_enum_labels(table_name, column_name):
+    query = text("""
+        SELECT e.enumlabel
+        FROM information_schema.columns c
+        JOIN pg_type t ON t.typname = c.udt_name
+        JOIN pg_enum e ON e.enumtypid = t.oid
+        WHERE c.table_name = :table_name
+          AND c.column_name = :column_name
+        ORDER BY e.enumsortorder
+    """)
+    with engine.connect() as conn:
+        return [row[0] for row in conn.execute(query, {"table_name": table_name, "column_name": column_name}).fetchall()]
+
+
+def get_fee_pending_value():
+    labels = get_postgres_enum_labels("fees", "status")
+    if not labels:
+        return "pending"
+
+    for candidate in ("pending", "PENDING", "Pending"):
+        if candidate in labels:
+            return candidate
+    return labels[0]
+
+
 def ensure_school_schema():
     inspector = inspect(engine)
     if "schools" not in inspector.get_table_names():
@@ -162,11 +187,13 @@ def ensure_core_schema():
         },
     )
 
+    pending_value = get_fee_pending_value()
+
     with engine.begin() as conn:
         conn.execute(text("UPDATE students SET is_active = TRUE WHERE is_active IS NULL"))
         conn.execute(text("UPDATE teachers SET is_active = TRUE WHERE is_active IS NULL"))
         conn.execute(text("UPDATE subjects SET is_active = TRUE WHERE is_active IS NULL"))
-        conn.execute(text("UPDATE fees SET status = 'pending' WHERE status IS NULL"))
+        conn.execute(text("UPDATE fees SET status = :status WHERE status IS NULL"), {"status": pending_value})
         conn.execute(text("UPDATE fees SET paid_amount = 0 WHERE paid_amount IS NULL"))
 
 
