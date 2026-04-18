@@ -8,6 +8,8 @@ from app.core.database import SessionLocal
 from app.models.school import DEFAULT_FEATURES
 from app.models.user import UserRole
 from app.core.security import get_password_hash
+from sqlalchemy import inspect, text
+import json
 
 Base.metadata.create_all(bind=engine)
 
@@ -56,6 +58,44 @@ DEMO_USERS = [
         "school_code": "TCS001",
     },
 ]
+
+
+def ensure_school_schema():
+    inspector = inspect(engine)
+    if "schools" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("schools")}
+    default_features_json = json.dumps(DEFAULT_FEATURES)
+
+    with engine.begin() as conn:
+        if "code" not in existing_columns:
+            conn.execute(text("ALTER TABLE schools ADD COLUMN code VARCHAR(50)"))
+            conn.execute(text("""
+                UPDATE schools
+                SET code = CONCAT(
+                    COALESCE(NULLIF(UPPER(LEFT(REGEXP_REPLACE(name, '[^A-Za-z0-9]+', '', 'g'), 6)), ''), 'SCH'),
+                    '-',
+                    RIGHT(REPLACE(CAST(id AS TEXT), '-', ''), 4)
+                )
+                WHERE code IS NULL
+            """))
+
+        if "package" not in existing_columns:
+            conn.execute(text("ALTER TABLE schools ADD COLUMN package VARCHAR(20) DEFAULT 'starter'"))
+
+        if "features" not in existing_columns:
+            conn.execute(text("ALTER TABLE schools ADD COLUMN features JSON"))
+
+        if "is_active" not in existing_columns:
+            conn.execute(text("ALTER TABLE schools ADD COLUMN is_active BOOLEAN DEFAULT TRUE"))
+
+        conn.execute(text("UPDATE schools SET package = 'starter' WHERE package IS NULL"))
+        conn.execute(text("UPDATE schools SET is_active = TRUE WHERE is_active IS NULL"))
+        conn.execute(
+            text("UPDATE schools SET features = CAST(:features AS JSON) WHERE features IS NULL"),
+            {"features": default_features_json},
+        )
 
 
 def ensure_demo_data():
@@ -107,6 +147,7 @@ def ensure_demo_data():
         db.close()
 
 
+ensure_school_schema()
 ensure_demo_data()
 
 app = FastAPI(
