@@ -5,6 +5,16 @@ import toast from "react-hot-toast";
 import { Plus, Building2, Settings, Package, ToggleLeft, ToggleRight, Check } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
+type SchoolRecord = {
+  id: string;
+  name: string;
+  code: string;
+  email?: string | null;
+  phone?: string | null;
+  package: string;
+  features: Record<string, boolean>;
+};
+
 const FEATURES = [
   { key: "exam_generator",           label: "Exam Generator",           tier: "base" },
   { key: "lesson_planner",           label: "Lesson Planner",           tier: "base" },
@@ -24,7 +34,7 @@ const FEATURES = [
   { key: "plagiarism_detector",      label: "Plagiarism Detector",      tier: "elite" },
 ];
 
-const TIER_COLORS: any = {
+const TIER_COLORS: Record<string, string> = {
   base:  "bg-green-50 text-green-700 border-green-200",
   pro:   "bg-blue-50 text-blue-700 border-blue-200",
   elite: "bg-purple-50 text-purple-700 border-purple-200",
@@ -32,15 +42,15 @@ const TIER_COLORS: any = {
 
 export default function SchoolsPage() {
   const { user } = useAuth();
-  const [schools, setSchools] = useState<any[]>([]);
+  const [schools, setSchools] = useState<SchoolRecord[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [selected, setSelected] = useState<any>(null);
+  const [selected, setSelected] = useState<SchoolRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name:"", code:"", address:"", phone:"", email:"", package:"starter" });
 
   const load = async () => {
-    try { const { data } = await api.get("/api/v1/schools/"); setSchools(data); }
+    try { const { data } = await api.get("/api/v1/schools/"); setSchools(data as SchoolRecord[]); }
     catch { toast.error("Failed to load"); }
     finally { setLoading(false); }
   };
@@ -54,21 +64,31 @@ export default function SchoolsPage() {
 
   const updatePackage = async (schoolId: string, pkg: string) => {
     try {
-      await api.patch("/api/v1/schools/"+schoolId+"/package", { package: pkg });
+      const { data } = await api.patch("/api/v1/schools/"+schoolId+"/package", { package: pkg });
       toast.success("Package updated!");
-      load();
-      if (selected?.id === schoolId) setSelected({...selected, package: pkg});
+      setSchools((current) => current.map((school) => (
+        school.id === schoolId
+          ? { ...school, package: pkg, features: data.features }
+          : school
+      )));
+      if (selected?.id === schoolId) {
+        setSelected({ ...selected, package: pkg, features: data.features });
+      }
     } catch { toast.error("Failed"); }
   };
 
   const toggleFeature = async (schoolId: string, feature: string, current: boolean) => {
     setSaving(true);
     try {
-      await api.patch("/api/v1/schools/"+schoolId+"/features", { features: { [feature]: !current } });
+      const { data } = await api.patch("/api/v1/schools/"+schoolId+"/features", { features: { [feature]: !current } });
       toast.success("Feature " + (!current ? "enabled" : "disabled"));
-      load();
+      setSchools((currentSchools) => currentSchools.map((school) => (
+        school.id === schoolId
+          ? { ...school, features: data.features }
+          : school
+      )));
       if (selected?.id === schoolId) {
-        setSelected({...selected, features: {...selected.features, [feature]: !current}});
+        setSelected({ ...selected, features: data.features });
       }
     } catch { toast.error("Failed"); }
     finally { setSaving(false); }
