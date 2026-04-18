@@ -61,13 +61,7 @@ export default function Sidebar() {
           return (
             <Link key={href} href={href}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all group ${
-<<<<<<< HEAD
-                active
-                  ? "bg-blue-600 text-white"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-=======
                 active ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
->>>>>>> 3d29a5febb577b44ada8598485b2a3ac72631904
               }`}>
               <Icon size={17} className={active ? "text-white" : "text-slate-400 group-hover:text-slate-600"} />
               <span className="flex-1 font-medium">{label}</span>
