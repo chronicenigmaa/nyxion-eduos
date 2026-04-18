@@ -5,10 +5,10 @@ import toast from "react-hot-toast";
 import { Brain, Loader2, Sparkles } from "lucide-react";
 
 const templates = [
-  { type: "exam",         label: "Generate Exam",  placeholder: "Generate 10 MCQ questions for Grade 8 Science chapter on Photosynthesis" },
-  { type: "lesson_plan",  label: "Lesson Plan",    placeholder: "Create a lesson plan for Grade 6 Mathematics on fractions for 45 minutes" },
-  { type: "announcement", label: "Announcement",   placeholder: "Write an announcement for parent-teacher meeting this Saturday at 10am" },
-  { type: "general",      label: "Ask Anything",   placeholder: "How should I handle a student who is consistently absent from class?" },
+  { type: "exam",         label: "Generate Exam",  placeholder: "Generate 10 MCQ questions for Grade 8 Science on Photosynthesis" },
+  { type: "lesson_plan",  label: "Lesson Plan",    placeholder: "Create a lesson plan for Grade 6 Mathematics on fractions" },
+  { type: "announcement", label: "Announcement",   placeholder: "Write an announcement for parent-teacher meeting this Saturday" },
+  { type: "general",      label: "Ask Anything",   placeholder: "How should I handle a student who is consistently absent?" },
 ];
 
 export default function AIPage() {
@@ -37,47 +37,20 @@ export default function AIPage() {
         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
           <Brain className="text-blue-600" size={26} /> AI Tools
         </h1>
-<<<<<<< HEAD
-        <p className="text-slate-500 mt-1">Powered by Llama 3 70B â€” your data never leaves your server</p>
-=======
-        <p className="text-slate-500 mt-1">Powered by Llama 3 70B — your data never leaves your server</p>
->>>>>>> 3d29a5febb577b44ada8598485b2a3ac72631904
+        <p className="text-slate-500 mt-1">Powered by Llama 3 70B</p>
       </div>
-
       <div className="flex gap-2 mb-6 flex-wrap">
         {templates.map((t) => (
-<<<<<<< HEAD
-          <button key={t.type}
-            onClick={() => { setType(t.type); setPrompt(""); setResponse(""); }}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
-              type === t.type
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-600"
-=======
           <button key={t.type} onClick={() => { setType(t.type); setPrompt(""); setResponse(""); }}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
-              type === t.type ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-600"
->>>>>>> 3d29a5febb577b44ada8598485b2a3ac72631904
-            }`}>
+            className={"px-4 py-2 rounded-xl text-sm font-medium transition-all border " + (type === t.type ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-600")}>
             {t.label}
           </button>
         ))}
       </div>
-
       <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-4">
-<<<<<<< HEAD
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder={templates.find(t => t.type === type)?.placeholder}
-          rows={4}
-          className="w-full bg-transparent text-slate-800 text-sm resize-none focus:outline-none placeholder-slate-400"
-        />
-=======
         <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)}
           placeholder={templates.find(t => t.type === type)?.placeholder}
           rows={4} className="w-full bg-transparent text-slate-800 text-sm resize-none focus:outline-none placeholder-slate-400" />
->>>>>>> 3d29a5febb577b44ada8598485b2a3ac72631904
         <div className="flex justify-between items-center mt-4 pt-4 border-t border-slate-100">
           <span className="text-slate-400 text-xs">Model: Llama 3 70B (Groq)</span>
           <button onClick={generate} disabled={loading}
@@ -87,7 +60,6 @@ export default function AIPage() {
           </button>
         </div>
       </div>
-
       {response && (
         <div className="bg-white rounded-2xl border border-blue-200 p-6">
           <div className="flex items-center gap-2 mb-4">
