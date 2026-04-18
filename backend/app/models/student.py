@@ -20,5 +20,6 @@ class Student(Base):
     address = Column(Text)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
-
+# Add to backend/app/models/student.py
+    email = Column(String(255), nullable=True)
     school = relationship("School", back_populates="students")

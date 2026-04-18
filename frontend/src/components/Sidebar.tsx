@@ -24,6 +24,7 @@ const navItems = [
   { href: "/dashboard/communication", label: "WhatsApp",     icon: MessageSquare },
   { href: "/dashboard/ai",            label: "AI Tools",     icon: Brain },
   { href: "/dashboard/schools",       label: "Schools",      icon: Building2, superAdminOnly: true },
+  { href: "/portal",                   label: "Student Portal", icon: GraduationCap },
 ];
 
 export default function Sidebar() {

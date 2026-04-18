@@ -1,8 +1,9 @@
+# backend/app/api/v1/router.py
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
     auth, schools, students, ai, teachers,
     attendance, fees, academics, communication,
-    assignments, results, coursebooks, timetable
+    assignments, results, coursebooks, timetable, portal
 )
 
 api_router = APIRouter()
@@ -18,4 +19,5 @@ api_router.include_router(assignments.router,   prefix="/assignments",   tags=["
 api_router.include_router(results.router,       prefix="/results",       tags=["results"])
 api_router.include_router(coursebooks.router,   prefix="/coursebooks",   tags=["coursebooks"])
 api_router.include_router(timetable.router,     prefix="/timetable",     tags=["timetable"])
+api_router.include_router(portal.router,        prefix="/portal",        tags=["portal"])
 api_router.include_router(ai.router,            prefix="/ai",            tags=["ai"])

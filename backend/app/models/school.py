@@ -1,9 +1,42 @@
-from sqlalchemy import Column, String, Boolean, DateTime, Text
+from sqlalchemy import Column, String, Boolean, DateTime, Text, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 import uuid
 from datetime import datetime
+
+DEFAULT_FEATURES = {
+    "exam_generator": True,
+    "lesson_planner": True,
+    "notice_writer": True,
+    "attendance_analysis": True,
+    "fee_defaulter_prediction": False,
+    "report_card_generator": False,
+    "homework_generator": False,
+    "exam_analyser": False,
+    "parent_messages": False,
+    "ai_chatbot": False,
+    "timetable_generator": False,
+    "risk_scoring": False,
+    "behaviour_tracker": False,
+    "plagiarism_detector": False,
+    "student_portal": False,
+    "export_pdf": True,
+}
+
+PACKAGE_FEATURES = {
+    "starter": [
+        "exam_generator", "lesson_planner", "notice_writer",
+        "attendance_analysis", "export_pdf", "student_portal"
+    ],
+    "growth": [
+        "exam_generator", "lesson_planner", "notice_writer",
+        "attendance_analysis", "fee_defaulter_prediction",
+        "report_card_generator", "homework_generator",
+        "exam_analyser", "parent_messages", "export_pdf", "student_portal"
+    ],
+    "elite": "all"
+}
 
 class School(Base):
     __tablename__ = "schools"
@@ -14,6 +47,8 @@ class School(Base):
     address = Column(Text)
     phone = Column(String(50))
     email = Column(String(255))
+    package = Column(String(20), default="starter")
+    features = Column(JSON, default=DEFAULT_FEATURES)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
