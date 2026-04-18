@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.user import User, UserRole
 from app.models.student import Student
+from app.models.teacher import Teacher
 from app.models.assignment import Assignment
 from app.models.submission import Submission, SubmissionStatus
 from app.models.result import Result
@@ -11,6 +12,7 @@ from app.models.fee import Fee, FeeStatus
 from app.models.coursebook import CourseBook
 from app.models.timetable import TimetableEntry
 from app.models.notice import Notice
+from app.models.school import School
 from app.api.v1.endpoints.auth import get_current_user
 from pydantic import BaseModel
 from typing import Optional
@@ -27,8 +29,121 @@ class SubmissionCreate(BaseModel):
 def portal_dashboard(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Unified dashboard for students and teachers"""
     school_id = current_user.school_id
+
+    if current_user.role.value == "super_admin":
+        schools = db.query(School).filter(School.is_active == True).count()
+        students = db.query(Student).filter(Student.is_active == True).count()
+        teachers = db.query(Teacher).filter(Teacher.is_active == True).count()
+        pending_fees = db.query(Fee).filter(Fee.status != FeeStatus.PAID).count()
+        recent_notices = db.query(Notice).order_by(Notice.created_at.desc()).limit(3).all()
+
+        return {
+            "role": "super_admin",
+            "name": current_user.full_name,
+            "stats": {
+                "attendance_rate": 100,
+                "pending_assignments": schools,
+                "pending_fees": pending_fees,
+                "total_results": students + teachers,
+            },
+            "assignments": [
+                {
+                    "id": "schools",
+                    "title": "Network Overview",
+                    "subject": f"{schools} active schools",
+                    "total_marks": schools,
+                    "due_date": None,
+                    "submitted": True,
+                    "grade": None,
+                    "feedback": None,
+                    "status": "ready",
+                },
+                {
+                    "id": "students",
+                    "title": "Student Enrollment",
+                    "subject": f"{students} active students",
+                    "total_marks": students,
+                    "due_date": None,
+                    "submitted": True,
+                    "grade": None,
+                    "feedback": None,
+                    "status": "ready",
+                },
+                {
+                    "id": "teachers",
+                    "title": "Teacher Coverage",
+                    "subject": f"{teachers} active teachers",
+                    "total_marks": teachers,
+                    "due_date": None,
+                    "submitted": True,
+                    "grade": None,
+                    "feedback": None,
+                    "status": "ready",
+                },
+            ],
+            "notices": [{"title": n.title, "type": n.type, "date": str(n.created_at)} for n in recent_notices],
+        }
+
     if not school_id:
         raise HTTPException(status_code=400, detail="No school associated")
+
+    if current_user.role.value == "school_admin":
+        students = db.query(Student).filter(
+            Student.school_id == school_id,
+            Student.is_active == True,
+        ).count()
+        teachers = db.query(Teacher).filter(
+            Teacher.school_id == school_id,
+            Teacher.is_active == True,
+        ).count()
+        assignments = db.query(Assignment).filter(
+            Assignment.school_id == school_id
+        ).order_by(Assignment.created_at.desc()).limit(5).all()
+        pending_fees = db.query(Fee).filter(
+            Fee.school_id == school_id,
+            Fee.status != FeeStatus.PAID,
+        ).count()
+        recent_notices = db.query(Notice).filter(
+            Notice.school_id == school_id
+        ).order_by(Notice.created_at.desc()).limit(3).all()
+
+        return {
+            "role": "school_admin",
+            "name": current_user.full_name,
+            "stats": {
+                "attendance_rate": 100,
+                "pending_assignments": len(assignments),
+                "pending_fees": pending_fees,
+                "total_results": students,
+            },
+            "assignments": [
+                {
+                    "id": str(a.id),
+                    "title": a.title,
+                    "subject": a.class_name or "School-wide",
+                    "total_marks": a.total_marks,
+                    "due_date": str(a.due_date) if a.due_date else None,
+                    "submitted": True,
+                    "grade": None,
+                    "feedback": None,
+                    "status": a.status,
+                }
+                for a in assignments
+            ] + [
+                {
+                    "id": "teachers",
+                    "title": "Teacher Coverage",
+                    "subject": f"{teachers} active teachers",
+                    "total_marks": teachers,
+                    "due_date": None,
+                    "submitted": True,
+                    "grade": None,
+                    "feedback": None,
+                    "status": "ready",
+                }
+            ],
+            "notices": [{"title": n.title, "type": n.type, "date": str(n.created_at)} for n in recent_notices],
+        }
 
     if current_user.role.value == "teacher":
         # Teacher dashboard
