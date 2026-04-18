@@ -10,12 +10,8 @@ export default function ComingSoon({ title, description }: { title: string; desc
         <h1 className="text-2xl font-bold text-slate-900 mb-2">{title}</h1>
         <p className="text-slate-500 max-w-sm">{description}</p>
         <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 border border-blue-100">
-          <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-<<<<<<< HEAD
-          <span className="text-blue-600 text-sm">In development â€” coming soon</span>
-=======
-          <span className="text-blue-600 text-sm">In development — coming soon</span>
->>>>>>> 3d29a5febb577b44ada8598485b2a3ac72631904
+          <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+          <span className="text-blue-600 text-sm">In development - coming soon</span>
         </div>
       </div>
     </div>
