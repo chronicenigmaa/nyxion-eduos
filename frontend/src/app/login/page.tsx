@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import Image from "next/image";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -36,11 +37,8 @@ export default function LoginPage() {
     <div className="min-h-screen bg-slate-50 flex">
       <div className="hidden lg:flex lg:w-1/2 bg-blue-600 flex-col justify-between p-12">
         <div>
-          <div className="flex items-center gap-3 mb-16">
-            <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center">
-              <span className="text-blue-600 font-bold text-lg">N</span>
-            </div>
-            <span className="text-white font-bold text-xl">Nyxion EduOS</span>
+          <div className="mb-16">
+            <Image src="/logo-dark.svg" alt="Nyxion Labs" width={160} height={49} priority />
           </div>
           <h1 className="text-4xl font-bold text-white leading-tight mb-6">
             Pakistan First AI-Native School Operating System
@@ -65,6 +63,9 @@ export default function LoginPage() {
       </div>
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
+          <div className="lg:hidden mb-8">
+            <Image src="/logo-light.svg" alt="Nyxion Labs" width={140} height={43} priority />
+          </div>
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Sign in</h2>
           <p className="text-slate-500 mb-8">Enter your credentials to access the platform</p>
           <form onSubmit={handleLogin} className="space-y-5">
