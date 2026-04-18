@@ -43,10 +43,17 @@ export default function LoginPage() {
             <span className="text-white font-bold text-xl">Nyxion EduOS</span>
           </div>
           <h1 className="text-4xl font-bold text-white leading-tight mb-6">
+<<<<<<< HEAD
             Pakistan First<br />AI-Native School<br />Operating System
           </h1>
           <p className="text-blue-100 text-lg leading-relaxed">
             Manage students, teachers, attendance, fees, and academics powered by artificial intelligence.
+=======
+            Pakistan s First<br />AI-Native School<br />Operating System
+          </h1>
+          <p className="text-blue-100 text-lg leading-relaxed">
+            Manage students, teachers, attendance, fees, and academics — all powered by artificial intelligence.
+>>>>>>> 3d29a5febb577b44ada8598485b2a3ac72631904
           </p>
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -56,7 +63,11 @@ export default function LoginPage() {
             { num: "100%",  label: "Data ownership" },
             { num: "2 min", label: "Daily attendance" },
           ].map(({ num, label }) => (
+<<<<<<< HEAD
             <div key={label} className="bg-white/20 rounded-xl p-4">
+=======
+            <div key={label} className="bg-blue-500/40 rounded-xl p-4">
+>>>>>>> 3d29a5febb577b44ada8598485b2a3ac72631904
               <p className="text-white font-bold text-2xl">{num}</p>
               <p className="text-blue-100 text-sm mt-1">{label}</p>
             </div>
@@ -95,7 +106,11 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+<<<<<<< HEAD
                 placeholder="password"
+=======
+                placeholder="••••••••"
+>>>>>>> 3d29a5febb577b44ada8598485b2a3ac72631904
                 required
               />
             </div>
@@ -109,7 +124,11 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-8">
+<<<<<<< HEAD
             <p className="text-slate-400 text-xs text-center mb-3">Demo accounts â€” password: admin123</p>
+=======
+            <p className="text-slate-400 text-xs text-center mb-3">Demo accounts — password: admin123</p>
+>>>>>>> 3d29a5febb577b44ada8598485b2a3ac72631904
             <div className="grid grid-cols-2 gap-2">
               {demoLogins.map((d) => (
                 <button

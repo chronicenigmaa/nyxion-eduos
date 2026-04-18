@@ -42,11 +42,17 @@ export default function DashboardPage() {
   return (
     <div className="p-8">
       <div className="mb-8">
+<<<<<<< HEAD
         <h1 className="text-2xl font-bold text-slate-900">
           Good morning, {user?.full_name?.split(" ")[0]}
         </h1>
         <p className="text-slate-500 mt-1">
           {user?.school_name ? `${user.school_name}  Â·  ` : ""}
+=======
+        <h1 className="text-2xl font-bold text-slate-900">Good morning, {user?.full_name?.split(" ")[0]} ??</h1>
+        <p className="text-slate-500 mt-1">
+          {user?.school_name ? `${user.school_name}  ·  ` : ""}
+>>>>>>> 3d29a5febb577b44ada8598485b2a3ac72631904
           {new Date().toLocaleDateString("en-PK", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
         </p>
       </div>
@@ -92,9 +98,13 @@ export default function DashboardPage() {
                 <span className="text-slate-600 text-sm">{label}</span>
                 <div className="flex items-center gap-2">
                   <div className={`w-1.5 h-1.5 rounded-full ${status === "online" ? "bg-green-500" : "bg-amber-500"}`} />
+<<<<<<< HEAD
                   <span className={`text-xs font-medium ${status === "online" ? "text-green-600" : "text-amber-600"}`}>
                     {status}
                   </span>
+=======
+                  <span className={`text-xs font-medium ${status === "online" ? "text-green-600" : "text-amber-600"}`}>{status}</span>
+>>>>>>> 3d29a5febb577b44ada8598485b2a3ac72631904
                 </div>
               </div>
             ))}
