@@ -33,7 +33,7 @@ export default function Sidebar() {
   const items = navItems.filter(item => !item.superAdminOnly || user?.role === "super_admin");
 
   return (
-    <aside className="w-64 bg-white min-h-screen flex flex-col border-r border-slate-200">
+    <aside className="w-64 h-screen sticky top-0 bg-white flex flex-col border-r border-slate-200">
       <div className="p-5 border-b border-slate-100">
         <Image src="/logo-light.svg" alt="Nyxion Labs" width={120} height={37} priority />
         <p className="text-slate-400 text-xs mt-2">{user?.school_name || "All Schools"}</p>
@@ -50,7 +50,7 @@ export default function Sidebar() {
         <p className="text-slate-700 text-sm font-medium mt-1.5">{user?.full_name}</p>
       </div>
 
-      <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 min-h-0 p-3 space-y-0.5 overflow-y-auto">
         {items.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
           return (

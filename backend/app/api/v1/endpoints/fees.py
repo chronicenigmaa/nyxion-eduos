@@ -27,7 +27,9 @@ class FeeUpdate(BaseModel):
 
 @router.get("/")
 def list_fees(status: Optional[str] = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    query = db.query(Fee, Student).join(Student).filter(Fee.school_id == current_user.school_id)
+    query = db.query(Fee, Student).join(Student)
+    if current_user.role.value != "super_admin":
+        query = query.filter(Fee.school_id == current_user.school_id)
     if status:
         query = query.filter(Fee.status == status)
     results = query.all()
@@ -71,7 +73,10 @@ def update_fee(fee_id: uuid.UUID, data: FeeUpdate, db: Session = Depends(get_db)
 
 @router.get("/summary")
 def fee_summary(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    fees = db.query(Fee).filter(Fee.school_id == current_user.school_id).all()
+    query = db.query(Fee)
+    if current_user.role.value != "super_admin":
+        query = query.filter(Fee.school_id == current_user.school_id)
+    fees = query.all()
     return {
         "total": len(fees),
         "paid": sum(1 for f in fees if f.status == FeeStatus.PAID),

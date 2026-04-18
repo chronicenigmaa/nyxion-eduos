@@ -12,6 +12,8 @@ router = APIRouter()
 
 @router.get("/", response_model=List[StudentOut])
 def list_students(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if current_user.role.value == "super_admin":
+        return db.query(Student).filter(Student.is_active == True).all()
     if not current_user.school_id:
         raise HTTPException(status_code=400, detail="No school associated")
     return db.query(Student).filter(

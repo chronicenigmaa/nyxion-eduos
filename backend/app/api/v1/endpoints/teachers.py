@@ -34,6 +34,8 @@ class TeacherOut(BaseModel):
 
 @router.get("/", response_model=List[TeacherOut])
 def list_teachers(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if current_user.role.value == "super_admin":
+        return db.query(Teacher).filter(Teacher.is_active == True).all()
     return db.query(Teacher).filter(
         Teacher.school_id == current_user.school_id,
         Teacher.is_active == True

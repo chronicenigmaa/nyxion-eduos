@@ -38,23 +38,29 @@ PACKAGE_FEATURES = {
     "elite": "all"
 }
 
-def get_school_features(school) -> dict:
-    package = (school.package or "starter").lower()
-
-    if package == "elite":
-        return dict(DEFAULT_FEATURES)
-
-    enabled = PACKAGE_FEATURES.get(package, PACKAGE_FEATURES["starter"])
+def get_package_features(package: str | None) -> dict:
+    package_name = (package or "starter").lower()
+    allowed = PACKAGE_FEATURES.get(package_name, PACKAGE_FEATURES["starter"])
+    if allowed == "all":
+        return {key: True for key in DEFAULT_FEATURES.keys()}
 
     features = {key: False for key in DEFAULT_FEATURES.keys()}
-    for feature in enabled:
+    for feature in allowed:
         if feature in features:
             features[feature] = True
+    return features
 
-    # allow per-school overrides saved in DB
-    if school.features:
-        features.update(school.features)
+def normalize_feature_overrides(package: str | None, overrides: dict | None) -> dict:
+    base = get_package_features(package)
+    normalized = {}
+    for key, value in (overrides or {}).items():
+        if key in base and base[key] != value:
+            normalized[key] = value
+    return normalized
 
+def get_school_features(school) -> dict:
+    features = get_package_features(school.package)
+    features.update(normalize_feature_overrides(school.package, school.features))
     return features
 
 class School(Base):
@@ -67,7 +73,7 @@ class School(Base):
     phone = Column(String(50))
     email = Column(String(255))
     package = Column(String(20), default="starter")
-    features = Column(JSON, default=DEFAULT_FEATURES)
+    features = Column(JSON, default=dict)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

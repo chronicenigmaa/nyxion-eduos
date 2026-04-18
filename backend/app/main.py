@@ -6,6 +6,7 @@ from app.models import School, User, Student
 from app.core.database import Base
 from app.core.database import SessionLocal
 from app.models.school import DEFAULT_FEATURES
+from app.models.school import normalize_feature_overrides
 from app.models.user import UserRole
 from app.core.security import get_password_hash
 from sqlalchemy import inspect, text
@@ -206,7 +207,7 @@ def ensure_demo_data():
             if not school:
                 school = School(
                     **school_data,
-                    features=dict(DEFAULT_FEATURES),
+                    features={},
                 )
                 db.add(school)
                 db.flush()
@@ -217,7 +218,7 @@ def ensure_demo_data():
                 school.email = school_data["email"]
                 school.package = school_data["package"]
                 school.is_active = True
-                school.features = dict(school.features or DEFAULT_FEATURES)
+                school.features = normalize_feature_overrides(school.package, school.features)
             schools_by_code[school_data["code"]] = school
 
         for user_data in DEMO_USERS:

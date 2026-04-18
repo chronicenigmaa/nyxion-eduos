@@ -19,10 +19,10 @@ class SubjectCreate(BaseModel):
 
 @router.get("/subjects")
 def list_subjects(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    subjects = db.query(Subject).filter(
-        Subject.school_id == current_user.school_id,
-        Subject.is_active == True
-    ).all()
+    query = db.query(Subject).filter(Subject.is_active == True)
+    if current_user.role.value != "super_admin":
+        query = query.filter(Subject.school_id == current_user.school_id)
+    subjects = query.all()
     return [{"id": str(s.id), "name": s.name, "class_name": s.class_name, "description": s.description} for s in subjects]
 
 @router.post("/subjects")
@@ -35,10 +35,10 @@ def create_subject(data: SubjectCreate, db: Session = Depends(get_db), current_u
 
 @router.get("/classes")
 def list_classes(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    students = db.query(Student.class_name, Student.section).filter(
-        Student.school_id == current_user.school_id,
-        Student.is_active == True
-    ).distinct().all()
+    query = db.query(Student.class_name, Student.section).filter(Student.is_active == True)
+    if current_user.role.value != "super_admin":
+        query = query.filter(Student.school_id == current_user.school_id)
+    students = query.distinct().all()
     classes = {}
     for class_name, section in students:
         if class_name not in classes:
