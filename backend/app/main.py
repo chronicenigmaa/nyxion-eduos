@@ -8,9 +8,13 @@ from app.core.database import SessionLocal
 from app.models.school import DEFAULT_FEATURES
 from app.models.school import normalize_feature_overrides
 from app.models.user import UserRole
+from app.models.teacher import Teacher
+from app.models.subject import Subject
+from app.models.fee import Fee, FeeStatus
 from app.core.security import get_password_hash
 from sqlalchemy import inspect, text
 import json
+from datetime import datetime
 
 Base.metadata.create_all(bind=engine)
 
@@ -130,6 +134,7 @@ def ensure_school_schema():
 
         conn.execute(text("UPDATE schools SET package = 'starter' WHERE package IS NULL"))
         conn.execute(text("UPDATE schools SET is_active = TRUE WHERE is_active IS NULL"))
+        conn.execute(text("UPDATE schools SET created_at = NOW() WHERE created_at IS NULL"))
         conn.execute(
             text("UPDATE schools SET features = CAST(:features AS JSON) WHERE features IS NULL"),
             {"features": default_features_json},
@@ -196,6 +201,10 @@ def ensure_core_schema():
         conn.execute(text("UPDATE subjects SET is_active = TRUE WHERE is_active IS NULL"))
         conn.execute(text("UPDATE fees SET status = :status WHERE status IS NULL"), {"status": pending_value})
         conn.execute(text("UPDATE fees SET paid_amount = 0 WHERE paid_amount IS NULL"))
+        conn.execute(text("UPDATE students SET created_at = NOW() WHERE created_at IS NULL"))
+        conn.execute(text("UPDATE teachers SET created_at = NOW() WHERE created_at IS NULL"))
+        conn.execute(text("UPDATE subjects SET created_at = NOW() WHERE created_at IS NULL"))
+        conn.execute(text("UPDATE fees SET created_at = NOW() WHERE created_at IS NULL"))
 
 
 def ensure_demo_data():
@@ -247,9 +256,135 @@ def ensure_demo_data():
         db.close()
 
 
+def ensure_demo_records():
+    db = SessionLocal()
+    try:
+        school_map = {
+            school.code: school
+            for school in db.query(School).filter(School.code.in_(["TCS001", "BHS001"])).all()
+        }
+        if "TCS001" not in school_map or "BHS001" not in school_map:
+            return
+
+        demo_teachers = [
+            {"school_code": "TCS001", "full_name": "Mr. Ahmed Khan", "email": "ahmed@tcs.edu.pk", "phone": "0300-1111111", "subject": "Mathematics", "qualification": "MSc Mathematics", "salary": "55000"},
+            {"school_code": "TCS001", "full_name": "Ms. Sara Ali", "email": "sara@tcs.edu.pk", "phone": "0300-2222222", "subject": "English", "qualification": "MA English", "salary": "50000"},
+            {"school_code": "BHS001", "full_name": "Mr. Hassan Javed", "email": "hassan@bhs.edu.pk", "phone": "0301-1111111", "subject": "Mathematics", "qualification": "MSc Mathematics", "salary": "56000"},
+        ]
+        for teacher_data in demo_teachers:
+            school = school_map[teacher_data["school_code"]]
+            teacher = db.query(Teacher).filter(
+                Teacher.school_id == school.id,
+                Teacher.email == teacher_data["email"],
+            ).first()
+            if not teacher:
+                db.add(
+                    Teacher(
+                        school_id=school.id,
+                        full_name=teacher_data["full_name"],
+                        email=teacher_data["email"],
+                        phone=teacher_data["phone"],
+                        subject=teacher_data["subject"],
+                        qualification=teacher_data["qualification"],
+                        salary=teacher_data["salary"],
+                        is_active=True,
+                    )
+                )
+
+        demo_students = [
+            {"school_code": "TCS001", "full_name": "Ali Hassan", "father_name": "Hassan Ali", "roll_number": "TCS-001", "class_name": "8", "section": "A", "phone": "0300-1234567", "address": "Karachi"},
+            {"school_code": "TCS001", "full_name": "Fatima Khan", "father_name": "Imran Khan", "roll_number": "TCS-002", "class_name": "8", "section": "A", "phone": "0301-2345678", "address": "Karachi"},
+            {"school_code": "TCS001", "full_name": "Umar Farooq", "father_name": "Farooq Ahmed", "roll_number": "TCS-003", "class_name": "9", "section": "B", "phone": "0302-3456789", "address": "Karachi"},
+            {"school_code": "BHS001", "full_name": "Sara Ahmed", "father_name": "Ahmed Raza", "roll_number": "BHS-001", "class_name": "7", "section": "A", "phone": "0305-6789012", "address": "Lahore"},
+        ]
+        for student_data in demo_students:
+            school = school_map[student_data["school_code"]]
+            student = db.query(Student).filter(
+                Student.school_id == school.id,
+                Student.roll_number == student_data["roll_number"],
+            ).first()
+            if not student:
+                db.add(
+                    Student(
+                        school_id=school.id,
+                        full_name=student_data["full_name"],
+                        father_name=student_data["father_name"],
+                        roll_number=student_data["roll_number"],
+                        class_name=student_data["class_name"],
+                        section=student_data["section"],
+                        phone=student_data["phone"],
+                        address=student_data["address"],
+                        is_active=True,
+                    )
+                )
+
+        db.commit()
+
+        teachers_by_school = {}
+        for school_code, school in school_map.items():
+            teachers_by_school[school_code] = db.query(Teacher).filter(
+                Teacher.school_id == school.id,
+                Teacher.is_active == True,
+            ).all()
+
+        demo_subjects = [
+            {"school_code": "TCS001", "name": "Mathematics", "class_name": "8", "description": "Core mathematics curriculum"},
+            {"school_code": "TCS001", "name": "English", "class_name": "8", "description": "Language and composition"},
+            {"school_code": "BHS001", "name": "Mathematics", "class_name": "7", "description": "Core mathematics curriculum"},
+        ]
+        for subject_data in demo_subjects:
+            school = school_map[subject_data["school_code"]]
+            subject = db.query(Subject).filter(
+                Subject.school_id == school.id,
+                Subject.name == subject_data["name"],
+                Subject.class_name == subject_data["class_name"],
+            ).first()
+            if not subject:
+                teacher_id = teachers_by_school[subject_data["school_code"]][0].id if teachers_by_school[subject_data["school_code"]] else None
+                db.add(
+                    Subject(
+                        school_id=school.id,
+                        name=subject_data["name"],
+                        class_name=subject_data["class_name"],
+                        description=subject_data["description"],
+                        teacher_id=teacher_id,
+                        is_active=True,
+                    )
+                )
+
+        db.commit()
+
+        all_students = db.query(Student).filter(Student.is_active == True).all()
+        for student in all_students:
+            fee = db.query(Fee).filter(
+                Fee.school_id == student.school_id,
+                Fee.student_id == student.id,
+                Fee.month == "April",
+                Fee.year == "2026",
+            ).first()
+            if not fee:
+                db.add(
+                    Fee(
+                        school_id=student.school_id,
+                        student_id=student.id,
+                        amount=12000,
+                        paid_amount=12000 if student.roll_number.endswith("1") else 0,
+                        month="April",
+                        year="2026",
+                        status=FeeStatus.PAID if student.roll_number.endswith("1") else FeeStatus.PENDING,
+                        created_at=datetime.utcnow(),
+                    )
+                )
+
+        db.commit()
+    finally:
+        db.close()
+
+
 ensure_school_schema()
 ensure_core_schema()
 ensure_demo_data()
+ensure_demo_records()
 
 app = FastAPI(
     title="Nyxion EduOS API",
