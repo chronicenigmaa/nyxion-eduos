@@ -4,7 +4,7 @@ import { Download, FileText, Loader2 } from "lucide-react";
 
 interface Props {
   title: string;
-  data: Record<string, unknown> | Record<string, unknown>[];
+  data: object | object[];
   filename?: string;
 }
 
@@ -12,7 +12,7 @@ export default function ExportButton({ title, data, filename }: Props) {
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
 
-  const rows = Array.isArray(data) ? data : [data];
+  const rows = (Array.isArray(data) ? data : [data]) as Array<Record<string, unknown>>;
 
   const getHeaders = () => {
     if (rows.length === 0) return [];
