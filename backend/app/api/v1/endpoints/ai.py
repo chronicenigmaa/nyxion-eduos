@@ -39,7 +39,7 @@ async def call_ai(system: str, prompt: str, max_tokens: int = 2048) -> str:
                     "Content-Type": "application/json"
                 },
                 json={
-                    "model": "llama3-70b-8192",
+                    "model": "llama-3.3-70b-versatile",
                     "messages": [
                         {"role": "system", "content": system},
                         {"role": "user",   "content": prompt}
