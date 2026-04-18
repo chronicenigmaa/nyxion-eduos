@@ -77,6 +77,12 @@ try:
                     school_id=user_data["school_id"],
                 )
             )
+        else:
+            existing_user.full_name = user_data["full_name"]
+            existing_user.role = user_data["role"]
+            existing_user.school_id = user_data["school_id"]
+            existing_user.hashed_password = get_password_hash("admin123")
+            existing_user.is_active = True
 
     db.commit()
 
