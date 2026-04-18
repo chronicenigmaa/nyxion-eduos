@@ -7,6 +7,7 @@ import {
   DollarSign, BookOpen, Brain, Settings, ChevronRight, Sparkles
 } from "lucide-react";
 import Link from "next/link";
+import ExportButton from "@/components/ExportButton";
 
 type SchoolSummary = {
   id: string;
@@ -68,12 +69,24 @@ export default function DashboardPage() {
 
   return (
     <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">Good morning, {user?.full_name?.split(" ")[0]}</h1>
-        <p className="text-slate-500 mt-1">
-          {user?.school_name ? user.school_name + "  -  " : ""}
-          {new Date().toLocaleDateString("en-PK", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-        </p>
+      <div className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Good morning, {user?.full_name?.split(" ")[0]}</h1>
+          <p className="text-slate-500 mt-1">
+            {user?.school_name ? user.school_name + "  -  " : ""}
+            {new Date().toLocaleDateString("en-PK", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+          </p>
+        </div>
+        <ExportButton
+          title="Dashboard Overview"
+          filename="dashboard-overview"
+          data={[
+            { metric: "Total Students", value: stats.students },
+            { metric: "Total Teachers", value: stats.teachers },
+            { metric: "Active Schools", value: stats.schools },
+            { metric: "Attendance Rate", value: "94%" },
+          ]}
+        />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {cards.map(({ label, value, icon: Icon, bg, text, border }) => (
