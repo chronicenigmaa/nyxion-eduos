@@ -30,3 +30,22 @@ class Assignment(Base):
 
     submissions = relationship("Submission", back_populates="assignment")
     teacher = relationship("Teacher", backref="assignments")
+    
+class Submission(Base):
+    __tablename__ = "submissions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    assignment_id = Column(UUID(as_uuid=True), ForeignKey("assignments.id"), nullable=False)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("students.id"), nullable=False)
+
+    content = Column(Text)
+    file_url = Column(String(500))
+
+    marks_obtained = Column(Float)
+    feedback = Column(Text)
+
+    submitted_at = Column(DateTime, default=datetime.utcnow)
+    graded = Column(Boolean, default=False)
+
+    assignment = relationship("Assignment", back_populates="submissions")
+    student = relationship("Student", backref="submissions")
