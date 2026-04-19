@@ -10,6 +10,9 @@ from app.core.config import settings
 from fastapi.security import OAuth2PasswordBearer
 from app.core.security import decode_token
 import uuid
+from datetime import datetime, timedelta
+from jose import jwt
+from app.core.security import SECRET_KEY, get_current_user
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -65,3 +68,15 @@ def get_me(current_user: User = Depends(get_current_user), db: Session = Depends
         "school_id": str(current_user.school_id) if current_user.school_id else None,
         "school_name": school.name if school else None
     }
+    
+@router.get("/sso-token")
+def get_sso_token(current_user: User = Depends(get_current_user)):
+    payload = {
+        "sub": str(current_user.id),
+        "name": current_user.name,
+        "email": current_user.email,
+        "role": current_user.role.value,
+        "exp": datetime.utcnow() + timedelta(minutes=5)
+    }
+    token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+    return {"token": token}
