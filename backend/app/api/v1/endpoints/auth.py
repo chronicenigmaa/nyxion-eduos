@@ -13,9 +13,24 @@ import uuid
 from datetime import datetime, timedelta
 from jose import jwt
 from app.core.security import SECRET_KEY, get_current_user
+from app.core.config import settings
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+
+@router.get("/sso-token")
+def get_sso_token(current_user: User = Depends(get_current_user)):
+    payload = {
+        "sub": str(current_user.id),
+        "name": current_user.name,
+        "email": current_user.email,
+        "role": current_user.role.value,
+        "exp": datetime.utcnow() + timedelta(minutes=5)
+    }
+    from jose import jwt
+    token = jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return {"token": token}
+
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     try:
