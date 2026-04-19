@@ -12,7 +12,6 @@ from app.core.security import decode_token
 import uuid
 from datetime import datetime, timedelta
 from jose import jwt
-from app.core.config import settings
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
