@@ -5,11 +5,13 @@ import toast from "react-hot-toast";
 import { Plus, Trash2, Search, Users, TrendingUp, AlertCircle, Lightbulb, BarChart2 } from "lucide-react";
 import AIInsightsPanel from "@/components/AIInsightsPanel";
 import ExportButton from "@/components/ExportButton";
+import { useAuth } from "@/context/AuthContext";
 
 interface Teacher { id: string; full_name: string; email: string; phone: string; subject: string; qualification: string; salary: string; }
 
 interface TeacherForm {
   full_name: string;
+  school_id: string;
   email: string;
   phone: string;
   subject: string;
@@ -17,11 +19,13 @@ interface TeacherForm {
   salary: string;
   temporary_password: string;
 }
+type School = { id: string; name: string; code: string };
 
 type ApiError = { response?: { data?: { detail?: string } } };
 
 const emptyForm: TeacherForm = {
   full_name: "",
+  school_id: "",
   email: "",
   phone: "",
   subject: "",
@@ -31,7 +35,9 @@ const emptyForm: TeacherForm = {
 };
 
 export default function TeachersPage() {
+  const { user } = useAuth();
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -48,11 +54,24 @@ export default function TeachersPage() {
     }
   };
   useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    const loadSchools = async () => {
+      if (user?.role !== "super_admin") return;
+      try {
+        const { data } = await api.get("/api/v1/schools");
+        setSchools(data);
+      } catch {
+        toast.error("Failed to load schools");
+      }
+    };
+    void loadSchools();
+  }, [user?.role]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { data } = await api.post("/api/v1/teachers/", form);
+      const payload = user?.role === "super_admin" ? form : { ...form, school_id: undefined };
+      const { data } = await api.post("/api/v1/teachers/", payload);
       toast.success("Teacher added");
 
       if (data?.login_created && form.email) {
@@ -113,7 +132,26 @@ export default function TeachersPage() {
         <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
           <h2 className="text-slate-900 font-semibold mb-4">New Teacher</h2>
           <form onSubmit={handleSubmit} className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {user?.role === "super_admin" && (
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">School</label>
+                <select
+                  value={form.school_id}
+                  onChange={(e) => setForm({ ...form, school_id: e.target.value })}
+                  required
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-900 text-sm focus:outline-none"
+                >
+                  <option value="">Select school</option>
+                  {schools.map((school) => (
+                    <option key={school.id} value={school.id}>
+                      {school.name} ({school.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             {Object.keys(form).map((key) => (
+              key === "school_id" ? null :
               <div key={key}>
                 <label className="block text-xs text-slate-500 mb-1 capitalize">{key.replace("_", " ")}</label>
                 <input

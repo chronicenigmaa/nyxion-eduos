@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.teacher import Teacher
+from app.models.school import School
 from app.models.user import User, UserRole
 from app.core.security import get_password_hash
 from app.api.v1.endpoints.auth import get_current_user
@@ -15,6 +16,7 @@ router = APIRouter()
 
 class TeacherCreate(BaseModel):
     full_name: str
+    school_id: Optional[uuid.UUID] = None
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     subject: Optional[str] = None
@@ -50,8 +52,18 @@ def list_teachers(db: Session = Depends(get_db), current_user: User = Depends(ge
 
 @router.post("/")
 def create_teacher(data: TeacherCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if not current_user.school_id:
-        raise HTTPException(status_code=400, detail="No school associated")
+    if current_user.role == UserRole.SUPER_ADMIN:
+        target_school_id = data.school_id or current_user.school_id
+        if not target_school_id:
+            raise HTTPException(status_code=400, detail="Select a school before creating a teacher")
+    else:
+        if not current_user.school_id:
+            raise HTTPException(status_code=400, detail="No school associated")
+        target_school_id = current_user.school_id
+
+    school = db.query(School).filter(School.id == target_school_id, School.is_active == True).first()
+    if not school:
+        raise HTTPException(status_code=404, detail="Selected school not found or inactive")
 
     teacher = Teacher(
         full_name=data.full_name,
@@ -60,7 +72,7 @@ def create_teacher(data: TeacherCreate, db: Session = Depends(get_db), current_u
         subject=data.subject,
         qualification=data.qualification,
         salary=data.salary,
-        school_id=current_user.school_id,
+        school_id=target_school_id,
     )
 
     login_created = False
@@ -73,7 +85,7 @@ def create_teacher(data: TeacherCreate, db: Session = Depends(get_db), current_u
 
         temporary_password = data.temporary_password or secrets.token_urlsafe(8)
         teacher_user = User(
-            school_id=current_user.school_id,
+            school_id=target_school_id,
             email=data.email,
             full_name=data.full_name,
             hashed_password=get_password_hash(temporary_password),
