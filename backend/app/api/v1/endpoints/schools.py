@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
 from app.core.database import get_db
 from app.core.security import get_password_hash
-from app.core.auth import get_current_user
+from app.api.v1.endpoints.auth import get_current_user
 from app.models.user import User, UserRole
 from app.models.school import School
 import uuid
