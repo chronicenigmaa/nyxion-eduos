@@ -5,6 +5,7 @@ from datetime import date, datetime
 
 class StudentCreate(BaseModel):
     full_name: str
+    school_id: Optional[uuid.UUID] = None
     father_name: Optional[str] = None
     roll_number: Optional[str] = None
     class_name: Optional[str] = None

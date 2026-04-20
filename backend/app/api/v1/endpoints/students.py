@@ -43,20 +43,26 @@ def list_students(db: Session = Depends(get_db), current_user: User = Depends(ge
 
 @router.post("/", response_model=StudentOut)
 def create_student(data: StudentCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if not current_user.school_id:
-        raise HTTPException(status_code=400, detail="No school associated")
+    if current_user.role.value == "super_admin":
+        target_school_id = data.school_id or current_user.school_id
+    else:
+        target_school_id = current_user.school_id
+
+    if not target_school_id:
+        raise HTTPException(status_code=400, detail="Select a school before creating a student")
 
     normalized_roll = _normalized_roll(data.roll_number)
     if normalized_roll:
         duplicate = db.query(Student).filter(
-            Student.school_id == current_user.school_id,
+            Student.school_id == target_school_id,
             Student.roll_number == normalized_roll,
             Student.is_active == True,
         ).first()
         if duplicate:
             raise HTTPException(status_code=400, detail="This roll number is already assigned in your school")
 
-    student = Student(**data.dict(), roll_number=normalized_roll, school_id=current_user.school_id)
+    payload = data.dict(exclude={"school_id"})
+    student = Student(**payload, roll_number=normalized_roll, school_id=target_school_id)
     db.add(student)
     db.commit()
     db.refresh(student)

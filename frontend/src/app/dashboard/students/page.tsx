@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { Plus, Trash2, Search, GraduationCap, TrendingUp, AlertCircle, Lightbulb, Users, Pencil } from "lucide-react";
 import AIInsightsPanel from "@/components/AIInsightsPanel";
 import ExportButton from "@/components/ExportButton";
+import { useAuth } from "@/context/AuthContext";
 
 interface Student {
   id: string;
@@ -20,6 +21,7 @@ type ApiError = { response?: { data?: { detail?: string } } };
 
 type StudentForm = {
   full_name: string;
+  school_id: string;
   father_name: string;
   roll_number: string;
   class_name: string;
@@ -27,8 +29,11 @@ type StudentForm = {
   phone: string;
 };
 
+type School = { id: string; name: string; code: string };
+
 const emptyForm: StudentForm = {
   full_name: "",
+  school_id: "",
   father_name: "",
   roll_number: "",
   class_name: "",
@@ -37,7 +42,9 @@ const emptyForm: StudentForm = {
 };
 
 export default function StudentsPage() {
+  const { user } = useAuth();
   const [students, setStudents] = useState<Student[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
@@ -59,6 +66,19 @@ export default function StudentsPage() {
     void load();
   }, []);
 
+  useEffect(() => {
+    const loadSchools = async () => {
+      if (user?.role !== "super_admin") return;
+      try {
+        const { data } = await api.get("/api/v1/schools");
+        setSchools(data);
+      } catch {
+        toast.error("Failed to load schools");
+      }
+    };
+    void loadSchools();
+  }, [user?.role]);
+
   const resetForm = () => {
     setForm(emptyForm);
     setEditingStudentId(null);
@@ -69,10 +89,19 @@ export default function StudentsPage() {
     e.preventDefault();
     try {
       if (editingStudentId) {
-        await api.put(`/api/v1/students/${editingStudentId}`, form);
+        const updatePayload = {
+          full_name: form.full_name,
+          father_name: form.father_name,
+          roll_number: form.roll_number,
+          class_name: form.class_name,
+          section: form.section,
+          phone: form.phone,
+        };
+        await api.put(`/api/v1/students/${editingStudentId}`, updatePayload);
         toast.success("Student updated");
       } else {
-        await api.post("/api/v1/students/", form);
+        const payload = user?.role === "super_admin" ? form : { ...form, school_id: undefined };
+        await api.post("/api/v1/students/", payload);
         toast.success("Student added");
       }
       resetForm();
@@ -86,6 +115,7 @@ export default function StudentsPage() {
   const handleEdit = (student: Student) => {
     setForm({
       full_name: student.full_name || "",
+      school_id: "",
       father_name: student.father_name || "",
       roll_number: student.roll_number || "",
       class_name: student.class_name || "",
@@ -161,7 +191,26 @@ export default function StudentsPage() {
         <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
           <h2 className="text-slate-900 font-semibold mb-4">{editingStudentId ? "Update Student Info" : "New Student"}</h2>
           <form onSubmit={handleSubmit} className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {user?.role === "super_admin" && !editingStudentId && (
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">School</label>
+                <select
+                  value={form.school_id}
+                  onChange={(e) => setForm({ ...form, school_id: e.target.value })}
+                  required
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-900 text-sm focus:outline-none"
+                >
+                  <option value="">Select school</option>
+                  {schools.map((school) => (
+                    <option key={school.id} value={school.id}>
+                      {school.name} ({school.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             {Object.keys(form).map((key) => (
+              key === "school_id" ? null :
               <div key={key}>
                 <label className="block text-xs text-slate-500 mb-1 capitalize">{key.replace("_", " ")}</label>
                 <input
