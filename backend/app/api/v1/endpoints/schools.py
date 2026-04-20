@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional
@@ -7,6 +8,10 @@ from app.core.security import get_password_hash
 from app.api.v1.endpoints.auth import get_current_user
 from app.models.school import School, get_school_features, get_package_features
 from app.models.user import User, UserRole
+from app.models.teacher import Teacher
+from app.models.student import Student
+from app.models.subject import Subject
+from app.models.class_section import ClassSection
 import uuid
 
 router = APIRouter()
@@ -70,17 +75,41 @@ def create_school(
     if current_user.role.value != "super_admin":
         raise HTTPException(status_code=403, detail="Only super admins can create schools")
 
-    existing = db.query(School).filter(School.code == data.code).first()
-    if existing:
+    normalized_code = data.code.strip().upper()
+    normalized_name = data.name.strip()
+
+    existing_by_code = db.query(School).filter(School.code == normalized_code).first()
+    if existing_by_code and existing_by_code.is_active:
         raise HTTPException(status_code=400, detail="A school with this code already exists")
 
-    existing_name = db.query(School).filter(School.name == data.name).first()
-    if existing_name:
+    existing_by_name = db.query(School).filter(func.lower(School.name) == normalized_name.lower()).first()
+    if existing_by_name and existing_by_name.is_active and (
+        not existing_by_code or existing_by_name.id != existing_by_code.id
+    ):
         raise HTTPException(status_code=400, detail="A school with this name already exists")
 
+    reactivated_school = None
+    if existing_by_code and not existing_by_code.is_active:
+        reactivated_school = existing_by_code
+    elif existing_by_name and not existing_by_name.is_active:
+        reactivated_school = existing_by_name
+
+    if reactivated_school:
+        reactivated_school.name = normalized_name
+        reactivated_school.code = normalized_code
+        reactivated_school.address = data.address
+        reactivated_school.phone = data.phone
+        reactivated_school.email = data.email
+        reactivated_school.package = data.package or "starter"
+        reactivated_school.features = {}
+        reactivated_school.is_active = True
+        db.commit()
+        db.refresh(reactivated_school)
+        return reactivated_school
+
     school = School(
-        name=data.name,
-        code=data.code.upper(),
+        name=normalized_name,
+        code=normalized_code,
         address=data.address,
         phone=data.phone,
         email=data.email,
@@ -272,6 +301,12 @@ def delete_school(
 
     # Remove all users belonging to this school first
     db.query(User).filter(User.school_id == school_id).delete()
+
+    # Soft delete school-linked academic data
+    db.query(Teacher).filter(Teacher.school_id == school_id).update({"is_active": False}, synchronize_session=False)
+    db.query(Student).filter(Student.school_id == school_id).update({"is_active": False}, synchronize_session=False)
+    db.query(Subject).filter(Subject.school_id == school_id).update({"is_active": False}, synchronize_session=False)
+    db.query(ClassSection).filter(ClassSection.school_id == school_id).update({"is_active": False}, synchronize_session=False)
 
     # Soft delete the school
     school.is_active = False
