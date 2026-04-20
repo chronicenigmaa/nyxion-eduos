@@ -5,6 +5,8 @@ from app.core.database import engine
 from app.models import School, User, Student
 from app.core.database import Base
 from app.core.database import SessionLocal
+from app.core.database import get_db_location
+from app.core.config import settings
 from app.models.school import DEFAULT_FEATURES
 from app.models.school import normalize_feature_overrides
 from app.models.user import UserRole
@@ -15,9 +17,12 @@ from app.models.fee import Fee, FeeStatus
 from app.core.security import get_password_hash
 from sqlalchemy import inspect, text
 import json
+import logging
 from datetime import datetime
 
-Base.metadata.create_all(bind=engine)
+logger = logging.getLogger("nyxion")
+if not logger.handlers:
+    logging.basicConfig(level=logging.INFO)
 
 DEMO_PASSWORD = "admin123"
 DEMO_SCHOOLS = [
@@ -382,12 +387,6 @@ def ensure_demo_records():
     finally:
         db.close()
 
-
-ensure_school_schema()
-ensure_core_schema()
-ensure_demo_data()
-ensure_demo_records()
-
 app = FastAPI(
     title="Nyxion EduOS API",
     description="AI-native School Operating System",
@@ -412,6 +411,34 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix="/api/v1")
+
+
+def initialize_database():
+    location = get_db_location()
+    logger.info(
+        "DB target env=%s driver=%s host=%s port=%s database=%s local=%s",
+        settings.ENV,
+        location["driver"],
+        location["host"],
+        location["port"],
+        location["database"],
+        location["is_local"],
+    )
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+    logger.info("DB connectivity check passed")
+
+    Base.metadata.create_all(bind=engine)
+    ensure_school_schema()
+    ensure_core_schema()
+    ensure_demo_data()
+    ensure_demo_records()
+    logger.info("DB schema/data initialization completed")
+
+
+@app.on_event("startup")
+def on_startup():
+    initialize_database()
 
 @app.get("/health")
 def health():
