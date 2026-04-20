@@ -389,7 +389,8 @@ ensure_demo_records()
 app = FastAPI(
     title="Nyxion EduOS API",
     description="AI-native School Operating System",
-    version="1.0.0"
+    version="1.0.0",
+    redirect_slashes=False
 )
 
 app.add_middleware(
