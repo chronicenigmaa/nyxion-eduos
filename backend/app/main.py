@@ -363,6 +363,8 @@ def ensure_demo_records():
 
         all_students = db.query(Student).filter(Student.is_active == True).all()
         for student in all_students:
+            roll_number = student.roll_number or ""
+            is_paid_demo = roll_number.endswith("1")
             fee = db.query(Fee).filter(
                 Fee.school_id == student.school_id,
                 Fee.student_id == student.id,
@@ -375,10 +377,10 @@ def ensure_demo_records():
                         school_id=student.school_id,
                         student_id=student.id,
                         amount=12000,
-                        paid_amount=12000 if student.roll_number.endswith("1") else 0,
+                        paid_amount=12000 if is_paid_demo else 0,
                         month="April",
                         year="2026",
-                        status=FeeStatus.PAID if student.roll_number.endswith("1") else FeeStatus.PENDING,
+                        status=FeeStatus.PAID if is_paid_demo else FeeStatus.PENDING,
                         created_at=datetime.utcnow(),
                     )
                 )
@@ -431,8 +433,12 @@ def initialize_database():
     Base.metadata.create_all(bind=engine)
     ensure_school_schema()
     ensure_core_schema()
-    ensure_demo_data()
-    ensure_demo_records()
+    if settings.ENV.lower() != "production":
+        ensure_demo_data()
+        ensure_demo_records()
+        logger.info("Demo seed initialization completed")
+    else:
+        logger.info("Skipping demo seed initialization in production")
     logger.info("DB schema/data initialization completed")
 
 
