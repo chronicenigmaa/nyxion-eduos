@@ -113,15 +113,16 @@ def create_student(data: StudentCreate, db: Session = Depends(get_db), current_u
             if duplicate:
                 raise HTTPException(status_code=400, detail="This roll number is already assigned in your school")
 
-        payload = data.dict(exclude={"school_id"})
         student = Student(
-            **payload,
+            school_id=target_school_id,
             full_name=normalized_name or data.full_name,
             father_name=normalized_father_name,
             class_name=normalized_class_name,
             section=normalized_section,
             roll_number=normalized_roll,
-            school_id=target_school_id,
+            date_of_birth=data.date_of_birth,
+            phone=data.phone,
+            address=data.address,
         )
         db.add(student)
         db.commit()
