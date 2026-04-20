@@ -14,7 +14,6 @@ interface Student {
   class_name: string;
   section: string;
   phone: string;
-  address?: string;
 }
 
 type ApiError = { response?: { data?: { detail?: string } } };
@@ -26,7 +25,6 @@ type StudentForm = {
   class_name: string;
   section: string;
   phone: string;
-  address: string;
 };
 
 const emptyForm: StudentForm = {
@@ -36,7 +34,6 @@ const emptyForm: StudentForm = {
   class_name: "",
   section: "",
   phone: "",
-  address: "",
 };
 
 export default function StudentsPage() {
@@ -94,7 +91,6 @@ export default function StudentsPage() {
       class_name: student.class_name || "",
       section: student.section || "",
       phone: student.phone || "",
-      address: student.address || "",
     });
     setEditingStudentId(student.id);
     setShowForm(true);
