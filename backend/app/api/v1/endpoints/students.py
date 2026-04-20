@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.student import Student
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.student import StudentCreate, StudentOut
 from app.api.v1.endpoints.auth import get_current_user
 from typing import List
@@ -102,10 +102,13 @@ def update_student(student_id: uuid.UUID, data: StudentUpdate, db: Session = Dep
 
 @router.delete("/{student_id}")
 def delete_student(student_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    student = db.query(Student).filter(
-        Student.id == student_id,
-        Student.school_id == current_user.school_id
-    ).first()
+    query = db.query(Student).filter(Student.id == student_id)
+    if current_user.role != UserRole.SUPER_ADMIN:
+        if not current_user.school_id:
+            raise HTTPException(status_code=400, detail="No school associated")
+        query = query.filter(Student.school_id == current_user.school_id)
+
+    student = query.first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
     student.is_active = False

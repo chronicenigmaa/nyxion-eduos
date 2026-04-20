@@ -106,8 +106,8 @@ export default function StudentsPage() {
       await api.delete(`/api/v1/students/${id}`);
       toast.success("Removed");
       await load();
-    } catch {
-      toast.error("Failed");
+    } catch (error: unknown) {
+      toast.error((error as ApiError)?.response?.data?.detail || "Failed");
     }
   };
 
