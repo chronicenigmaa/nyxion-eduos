@@ -49,7 +49,7 @@ class CreateAdminUserRequest(BaseModel):
 
 # ── GET /schools/ — list all schools ─────────────────────────────────────────
 
-@router.get("/", response_model=List[SchoolOut])
+@router.get("", response_model=List[SchoolOut])
 def list_schools(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -61,7 +61,7 @@ def list_schools(
 
 # ── POST /schools/ — create a school ─────────────────────────────────────────
 
-@router.post("/", response_model=SchoolOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=SchoolOut, status_code=status.HTTP_201_CREATED)
 def create_school(
     data: SchoolCreate,
     db: Session = Depends(get_db),
