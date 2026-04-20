@@ -23,7 +23,7 @@ class SchoolCreate(BaseModel):
     package: Optional[str] = "starter"
 
 class SchoolOut(BaseModel):
-    id: str
+    id: uuid.UUID        # ← change from str to uuid.UUID
     name: str
     code: str
     address: Optional[str] = None
