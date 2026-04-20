@@ -96,10 +96,12 @@ def create_teacher(data: TeacherCreate, db: Session = Depends(get_db), current_u
 
 @router.delete("/{teacher_id}")
 def delete_teacher(teacher_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    teacher = db.query(Teacher).filter(
-        Teacher.id == teacher_id,
-        Teacher.school_id == current_user.school_id
-    ).first()
+    query = db.query(Teacher).filter(Teacher.id == teacher_id)
+    if current_user.role != UserRole.SUPER_ADMIN:
+        if not current_user.school_id:
+            raise HTTPException(status_code=400, detail="No school associated")
+        query = query.filter(Teacher.school_id == current_user.school_id)
+    teacher = query.first()
     if not teacher:
         raise HTTPException(status_code=404, detail="Teacher not found")
     teacher.is_active = False
