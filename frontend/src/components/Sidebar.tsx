@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, GraduationCap, BookOpen,
   ClipboardList, DollarSign, MessageSquare, Brain,
   Building2, LogOut, ChevronRight, FileText, TrendingUp,
-  BookMarked, Calendar
+  BookMarked, Calendar, UserCog
 } from "lucide-react";
 
 const navItems = [
@@ -20,6 +20,7 @@ const navItems = [
   { href: "/dashboard/coursebooks",   label: "Course Books", icon: BookOpen },
   { href: "/dashboard/academics",     label: "Academics",    icon: BookMarked },
   { href: "/dashboard/timetable",     label: "Timetable",    icon: Calendar },
+  { href: "/dashboard/users",         label: "Manage Users", icon: UserCog, adminOnly: true },
   { href: "/dashboard/finance",       label: "Finance",      icon: DollarSign },
   { href: "/dashboard/communication", label: "WhatsApp",     icon: MessageSquare },
   { href: "/dashboard/ai",            label: "AI Tools",     icon: Brain },
@@ -30,7 +31,11 @@ const navItems = [
 export default function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
-  const items = navItems.filter(item => !item.superAdminOnly || user?.role === "super_admin");
+  const items = navItems.filter((item) => {
+    const superAdminAllowed = !item.superAdminOnly || user?.role === "super_admin";
+    const adminAllowed = !item.adminOnly || user?.role === "super_admin" || user?.role === "school_admin";
+    return superAdminAllowed && adminAllowed;
+  });
 
   return (
     <aside className="w-64 h-screen sticky top-0 bg-white flex flex-col border-r border-slate-200">

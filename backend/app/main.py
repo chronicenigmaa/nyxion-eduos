@@ -10,6 +10,7 @@ from app.models.school import normalize_feature_overrides
 from app.models.user import UserRole
 from app.models.teacher import Teacher
 from app.models.subject import Subject
+from app.models.class_section import ClassSection
 from app.models.fee import Fee, FeeStatus
 from app.core.security import get_password_hash
 from sqlalchemy import inspect, text
@@ -173,6 +174,7 @@ def ensure_core_schema():
         "subjects",
         {
             "class_name": "VARCHAR(50)",
+            "section": "VARCHAR(20)",
             "teacher_id": "UUID",
             "description": "TEXT",
             "is_active": "BOOLEAN DEFAULT TRUE",

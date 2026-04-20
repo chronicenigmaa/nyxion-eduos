@@ -12,6 +12,7 @@ class Subject(Base):
     school_id = Column(UUID(as_uuid=True), ForeignKey("schools.id"), nullable=False)
     name = Column(String(100), nullable=False)
     class_name = Column(String(50))
+    section = Column(String(20))
     teacher_id = Column(UUID(as_uuid=True), ForeignKey("teachers.id"), nullable=True)
     description = Column(Text)
     is_active = Column(Boolean, default=True)

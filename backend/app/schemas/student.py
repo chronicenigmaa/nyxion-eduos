@@ -22,6 +22,7 @@ class StudentOut(BaseModel):
     class_name: Optional[str]
     section: Optional[str]
     phone: Optional[str]
+    address: Optional[str]
     is_active: bool
     created_at: datetime
 

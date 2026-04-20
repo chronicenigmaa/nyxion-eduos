@@ -54,6 +54,7 @@ export default function DashboardPage() {
 
   const quickLinks = [
     { label: "Add Student",     href: "/dashboard/students",    icon: GraduationCap, color: "bg-blue-600" },
+    { label: "Manage Students", href: "/dashboard/students",    icon: Users,         color: "bg-sky-600" },
     { label: "Mark Attendance", href: "/dashboard/attendance",  icon: ClipboardList, color: "bg-green-600" },
     { label: "Manage Fees",     href: "/dashboard/finance",     icon: DollarSign,    color: "bg-amber-500" },
     { label: "AI Tools",        href: "/dashboard/ai",          icon: Brain,         color: "bg-purple-600" },
@@ -63,6 +64,7 @@ export default function DashboardPage() {
   const superAdminQuickLinks = [
     { label: "School Info", href: "/dashboard/schools", icon: Building2, color: "bg-slate-900" },
     { label: "Feature Toggles", href: "/dashboard/schools", icon: Settings, color: "bg-indigo-600" },
+    { label: "Manage Users", href: "/dashboard/users", icon: Users, color: "bg-blue-700" },
   ];
   const quickActions = user?.role === "super_admin" ? [...quickLinks, ...superAdminQuickLinks] : quickLinks;
   const featuredSchools = schools.slice(0, 3);

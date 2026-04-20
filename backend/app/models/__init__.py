@@ -5,6 +5,7 @@ from app.models.teacher import Teacher
 from app.models.attendance import Attendance
 from app.models.fee import Fee
 from app.models.subject import Subject
+from app.models.class_section import ClassSection
 from app.models.notice import Notice
 from app.models.assignment import Assignment
 from app.models.submission import Submission
