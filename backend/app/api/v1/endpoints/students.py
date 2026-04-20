@@ -10,9 +10,11 @@ from app.schemas.student import StudentCreate, StudentOut
 from app.api.v1.endpoints.auth import get_current_user
 from typing import List
 from pydantic import BaseModel
+import logging
 import uuid
 
 router = APIRouter()
+logger = logging.getLogger("nyxion.students")
 
 
 class StudentUpdate(BaseModel):
@@ -50,7 +52,14 @@ def list_students(db: Session = Depends(get_db), current_user: User = Depends(ge
             Student.school_id == current_user.school_id,
             Student.is_active == True
         ).all()
+    except HTTPException:
+        raise
     except SQLAlchemyError:
+        logger.exception("DB error while listing students")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Unable to load students right now")
+    except Exception:
+        logger.exception("Unexpected error while listing students")
         db.rollback()
         raise HTTPException(status_code=500, detail="Unable to load students right now")
 
@@ -113,10 +122,18 @@ def create_student(data: StudentCreate, db: Session = Depends(get_db), current_u
         db.commit()
         db.refresh(student)
         return student
+    except HTTPException:
+        raise
     except IntegrityError:
+        logger.exception("Constraint error while creating student")
         db.rollback()
         raise HTTPException(status_code=400, detail="Student data violates database constraints")
     except SQLAlchemyError:
+        logger.exception("DB error while creating student")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Unable to save student right now")
+    except Exception:
+        logger.exception("Unexpected error while creating student")
         db.rollback()
         raise HTTPException(status_code=500, detail="Unable to save student right now")
 
@@ -177,10 +194,18 @@ def update_student(student_id: uuid.UUID, data: StudentUpdate, db: Session = Dep
         db.commit()
         db.refresh(student)
         return student
+    except HTTPException:
+        raise
     except IntegrityError:
+        logger.exception("Constraint error while updating student id=%s", student_id)
         db.rollback()
         raise HTTPException(status_code=400, detail="Student update violates database constraints")
     except SQLAlchemyError:
+        logger.exception("DB error while updating student id=%s", student_id)
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Unable to update student right now")
+    except Exception:
+        logger.exception("Unexpected error while updating student id=%s", student_id)
         db.rollback()
         raise HTTPException(status_code=500, detail="Unable to update student right now")
 
@@ -200,6 +225,13 @@ def delete_student(student_id: uuid.UUID, db: Session = Depends(get_db), current
         student.is_active = False
         db.commit()
         return {"message": "Deleted"}
+    except HTTPException:
+        raise
     except SQLAlchemyError:
+        logger.exception("DB error while deleting student id=%s", student_id)
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Unable to delete student right now")
+    except Exception:
+        logger.exception("Unexpected error while deleting student id=%s", student_id)
         db.rollback()
         raise HTTPException(status_code=500, detail="Unable to delete student right now")
