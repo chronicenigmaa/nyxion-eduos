@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.student import Student
+from app.models.school import School
 from app.models.user import User, UserRole
 from app.schemas.student import StudentCreate, StudentOut
 from app.api.v1.endpoints.auth import get_current_user
@@ -59,6 +61,10 @@ def create_student(data: StudentCreate, db: Session = Depends(get_db), current_u
     if not target_school_id:
         raise HTTPException(status_code=400, detail="Select a school before creating a student")
 
+    school = db.query(School).filter(School.id == target_school_id, School.is_active == True).first()
+    if not school:
+        raise HTTPException(status_code=404, detail="Selected school not found or inactive")
+
     normalized_roll = _normalized_roll(data.roll_number)
     normalized_name = _normalized_text(data.full_name)
     normalized_father_name = _normalized_text(data.father_name)
@@ -98,9 +104,16 @@ def create_student(data: StudentCreate, db: Session = Depends(get_db), current_u
         roll_number=normalized_roll,
         school_id=target_school_id,
     )
-    db.add(student)
-    db.commit()
-    db.refresh(student)
+    try:
+        db.add(student)
+        db.commit()
+        db.refresh(student)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Student data violates database constraints")
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Unable to save student right now")
     return student
 
 
@@ -156,8 +169,15 @@ def update_student(student_id: uuid.UUID, data: StudentUpdate, db: Session = Dep
     student.phone = data.phone
     student.address = data.address
 
-    db.commit()
-    db.refresh(student)
+    try:
+        db.commit()
+        db.refresh(student)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Student update violates database constraints")
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Unable to update student right now")
     return student
 
 
@@ -173,5 +193,9 @@ def delete_student(student_id: uuid.UUID, db: Session = Depends(get_db), current
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
     student.is_active = False
-    db.commit()
+    try:
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Unable to delete student right now")
     return {"message": "Deleted"}
