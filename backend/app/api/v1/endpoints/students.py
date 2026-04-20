@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.student import Student
@@ -29,6 +30,13 @@ def _normalized_roll(roll_number: str | None) -> str | None:
     return normalized or None
 
 
+def _normalized_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
 @router.get("/", response_model=List[StudentOut])
 def list_students(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if current_user.role.value == "super_admin":
@@ -52,6 +60,25 @@ def create_student(data: StudentCreate, db: Session = Depends(get_db), current_u
         raise HTTPException(status_code=400, detail="Select a school before creating a student")
 
     normalized_roll = _normalized_roll(data.roll_number)
+    normalized_name = _normalized_text(data.full_name)
+    normalized_father_name = _normalized_text(data.father_name)
+    normalized_class_name = _normalized_text(data.class_name)
+    normalized_section = _normalized_text(data.section)
+
+    duplicate_student = db.query(Student).filter(
+        Student.school_id == target_school_id,
+        Student.is_active == True,
+        func.lower(Student.full_name) == (normalized_name or "").lower(),
+        func.coalesce(func.lower(Student.father_name), "") == (normalized_father_name or "").lower(),
+        func.coalesce(Student.class_name, "") == (normalized_class_name or ""),
+        func.coalesce(Student.section, "") == (normalized_section or ""),
+    ).first()
+    if duplicate_student:
+        raise HTTPException(
+            status_code=400,
+            detail="This student already exists in the selected class and section",
+        )
+
     if normalized_roll:
         duplicate = db.query(Student).filter(
             Student.school_id == target_school_id,
@@ -62,7 +89,15 @@ def create_student(data: StudentCreate, db: Session = Depends(get_db), current_u
             raise HTTPException(status_code=400, detail="This roll number is already assigned in your school")
 
     payload = data.dict(exclude={"school_id"})
-    student = Student(**payload, roll_number=normalized_roll, school_id=target_school_id)
+    student = Student(
+        **payload,
+        full_name=normalized_name or data.full_name,
+        father_name=normalized_father_name,
+        class_name=normalized_class_name,
+        section=normalized_section,
+        roll_number=normalized_roll,
+        school_id=target_school_id,
+    )
     db.add(student)
     db.commit()
     db.refresh(student)
@@ -83,6 +118,26 @@ def update_student(student_id: uuid.UUID, data: StudentUpdate, db: Session = Dep
         raise HTTPException(status_code=404, detail="Student not found")
 
     normalized_roll = _normalized_roll(data.roll_number)
+    normalized_name = _normalized_text(data.full_name)
+    normalized_father_name = _normalized_text(data.father_name)
+    normalized_class_name = _normalized_text(data.class_name)
+    normalized_section = _normalized_text(data.section)
+
+    duplicate_student = db.query(Student).filter(
+        Student.school_id == student.school_id,
+        Student.is_active == True,
+        Student.id != student.id,
+        func.lower(Student.full_name) == (normalized_name or "").lower(),
+        func.coalesce(func.lower(Student.father_name), "") == (normalized_father_name or "").lower(),
+        func.coalesce(Student.class_name, "") == (normalized_class_name or ""),
+        func.coalesce(Student.section, "") == (normalized_section or ""),
+    ).first()
+    if duplicate_student:
+        raise HTTPException(
+            status_code=400,
+            detail="This student already exists in the selected class and section",
+        )
+
     if normalized_roll:
         duplicate = db.query(Student).filter(
             Student.school_id == student.school_id,
@@ -93,11 +148,11 @@ def update_student(student_id: uuid.UUID, data: StudentUpdate, db: Session = Dep
         if duplicate:
             raise HTTPException(status_code=400, detail="This roll number is already assigned in your school")
 
-    student.full_name = data.full_name
-    student.father_name = data.father_name
+    student.full_name = normalized_name or data.full_name
+    student.father_name = normalized_father_name
     student.roll_number = normalized_roll
-    student.class_name = data.class_name
-    student.section = data.section
+    student.class_name = normalized_class_name
+    student.section = normalized_section
     student.phone = data.phone
     student.address = data.address
 
