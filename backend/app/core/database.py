@@ -6,11 +6,17 @@ from app.core.config import settings
 
 parsed_url = make_url(settings.DATABASE_URL)
 is_local_db = parsed_url.host in {"localhost", "127.0.0.1", "postgres", None}
+is_railway_internal = bool(parsed_url.host and parsed_url.host.endswith(".railway.internal"))
 has_sslmode = "sslmode" in parsed_url.query
 
 engine_kwargs = {"pool_pre_ping": True}
-if not is_local_db and not has_sslmode and parsed_url.drivername.startswith("postgresql"):
-    # Hosted Postgres providers generally require SSL if not specified explicitly.
+if (
+    not is_local_db
+    and not is_railway_internal
+    and not has_sslmode
+    and parsed_url.drivername.startswith("postgresql")
+):
+    # Hosted Postgres providers generally require SSL when using public endpoints.
     engine_kwargs["connect_args"] = {"sslmode": "require"}
 
 engine = create_engine(settings.DATABASE_URL, **engine_kwargs)
@@ -25,6 +31,7 @@ def get_db_location() -> dict:
         "port": parsed_url.port,
         "database": parsed_url.database,
         "is_local": is_local_db,
+        "is_railway_internal": is_railway_internal,
     }
 
 def get_db():

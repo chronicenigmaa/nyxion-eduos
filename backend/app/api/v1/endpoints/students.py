@@ -41,6 +41,11 @@ def _normalized_text(value: str | None) -> str | None:
     return normalized or None
 
 
+def _sqlalchemy_error_detail(exc: SQLAlchemyError) -> str:
+    raw = str(getattr(exc, "orig", exc))
+    return raw.strip() or "Database operation failed"
+
+
 @router.get("/", response_model=List[StudentOut])
 def list_students(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
@@ -54,10 +59,10 @@ def list_students(db: Session = Depends(get_db), current_user: User = Depends(ge
         ).all()
     except HTTPException:
         raise
-    except SQLAlchemyError:
+    except SQLAlchemyError as exc:
         logger.exception("DB error while listing students")
         db.rollback()
-        raise HTTPException(status_code=500, detail="Unable to load students right now")
+        raise HTTPException(status_code=500, detail=f"Unable to load students: {_sqlalchemy_error_detail(exc)}")
     except Exception:
         logger.exception("Unexpected error while listing students")
         db.rollback()
@@ -124,14 +129,14 @@ def create_student(data: StudentCreate, db: Session = Depends(get_db), current_u
         return student
     except HTTPException:
         raise
-    except IntegrityError:
+    except IntegrityError as exc:
         logger.exception("Constraint error while creating student")
         db.rollback()
-        raise HTTPException(status_code=400, detail="Student data violates database constraints")
-    except SQLAlchemyError:
+        raise HTTPException(status_code=400, detail=f"Student data violates database constraints: {_sqlalchemy_error_detail(exc)}")
+    except SQLAlchemyError as exc:
         logger.exception("DB error while creating student")
         db.rollback()
-        raise HTTPException(status_code=500, detail="Unable to save student right now")
+        raise HTTPException(status_code=500, detail=f"Unable to save student: {_sqlalchemy_error_detail(exc)}")
     except Exception:
         logger.exception("Unexpected error while creating student")
         db.rollback()
@@ -196,14 +201,14 @@ def update_student(student_id: uuid.UUID, data: StudentUpdate, db: Session = Dep
         return student
     except HTTPException:
         raise
-    except IntegrityError:
+    except IntegrityError as exc:
         logger.exception("Constraint error while updating student id=%s", student_id)
         db.rollback()
-        raise HTTPException(status_code=400, detail="Student update violates database constraints")
-    except SQLAlchemyError:
+        raise HTTPException(status_code=400, detail=f"Student update violates database constraints: {_sqlalchemy_error_detail(exc)}")
+    except SQLAlchemyError as exc:
         logger.exception("DB error while updating student id=%s", student_id)
         db.rollback()
-        raise HTTPException(status_code=500, detail="Unable to update student right now")
+        raise HTTPException(status_code=500, detail=f"Unable to update student: {_sqlalchemy_error_detail(exc)}")
     except Exception:
         logger.exception("Unexpected error while updating student id=%s", student_id)
         db.rollback()
@@ -227,10 +232,10 @@ def delete_student(student_id: uuid.UUID, db: Session = Depends(get_db), current
         return {"message": "Deleted"}
     except HTTPException:
         raise
-    except SQLAlchemyError:
+    except SQLAlchemyError as exc:
         logger.exception("DB error while deleting student id=%s", student_id)
         db.rollback()
-        raise HTTPException(status_code=500, detail="Unable to delete student right now")
+        raise HTTPException(status_code=500, detail=f"Unable to delete student: {_sqlalchemy_error_detail(exc)}")
     except Exception:
         logger.exception("Unexpected error while deleting student id=%s", student_id)
         db.rollback()
