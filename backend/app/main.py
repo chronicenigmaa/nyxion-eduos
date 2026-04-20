@@ -149,6 +149,12 @@ def ensure_school_schema():
 
 def ensure_core_schema():
     ensure_columns(
+        "users",
+        {
+            "must_change_password": "BOOLEAN DEFAULT FALSE",
+        },
+    )
+    ensure_columns(
         "students",
         {
             "father_name": "VARCHAR(255)",
@@ -203,6 +209,7 @@ def ensure_core_schema():
     pending_value = get_fee_pending_value()
 
     with engine.begin() as conn:
+        conn.execute(text("UPDATE users SET must_change_password = FALSE WHERE must_change_password IS NULL"))
         conn.execute(text("UPDATE students SET is_active = TRUE WHERE is_active IS NULL"))
         conn.execute(text("UPDATE teachers SET is_active = TRUE WHERE is_active IS NULL"))
         conn.execute(text("UPDATE subjects SET is_active = TRUE WHERE is_active IS NULL"))

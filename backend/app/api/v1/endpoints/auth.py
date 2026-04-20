@@ -7,12 +7,17 @@ from app.models.school import School
 from app.schemas.auth import LoginRequest, Token, UserCreate
 from app.core.config import settings
 from fastapi.security import OAuth2PasswordBearer
+from pydantic import BaseModel
 from jose import JWTError, jwt
 import uuid
 from datetime import datetime, timedelta
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
 
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
@@ -49,7 +54,8 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
             "full_name": user.full_name,
             "role": user.role.value,
             "school_id": str(user.school_id) if user.school_id else None,
-            "school_name": school.name if school else None
+            "school_name": school.name if school else None,
+            "must_change_password": user.must_change_password,
         }
     }
 
@@ -63,7 +69,39 @@ def get_me(current_user: User = Depends(get_current_user), db: Session = Depends
         "full_name": current_user.full_name,
         "role": current_user.role.value,
         "school_id": str(current_user.school_id) if current_user.school_id else None,
-        "school_name": school.name if school else None
+        "school_name": school.name if school else None,
+        "must_change_password": current_user.must_change_password,
+    }
+
+
+@router.post("/change-password")
+def change_password(
+    payload: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not verify_password(payload.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    if len(payload.new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+
+    current_user.hashed_password = get_password_hash(payload.new_password)
+    current_user.must_change_password = False
+    db.commit()
+    db.refresh(current_user)
+
+    school = db.query(School).filter(School.id == current_user.school_id).first() if current_user.school_id else None
+    return {
+        "message": "Password changed successfully",
+        "user": {
+            "id": str(current_user.id),
+            "email": current_user.email,
+            "full_name": current_user.full_name,
+            "role": current_user.role.value,
+            "school_id": str(current_user.school_id) if current_user.school_id else None,
+            "school_name": school.name if school else None,
+            "must_change_password": current_user.must_change_password,
+        }
     }
 
 

@@ -78,6 +78,7 @@ def create_teacher(data: TeacherCreate, db: Session = Depends(get_db), current_u
             full_name=data.full_name,
             hashed_password=get_password_hash(temporary_password),
             role=UserRole.TEACHER,
+            must_change_password=True,
             is_active=True,
         )
         db.add(teacher_user)
@@ -91,6 +92,54 @@ def create_teacher(data: TeacherCreate, db: Session = Depends(get_db), current_u
         "teacher": TeacherOut.model_validate(teacher).model_dump(),
         "login_created": login_created,
         "temporary_password": temporary_password,
+    }
+
+
+@router.post("/{teacher_id}/credentials")
+def regenerate_teacher_credentials(
+    teacher_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    query = db.query(Teacher).filter(Teacher.id == teacher_id, Teacher.is_active == True)
+    if current_user.role != UserRole.SUPER_ADMIN:
+        if not current_user.school_id:
+            raise HTTPException(status_code=400, detail="No school associated")
+        query = query.filter(Teacher.school_id == current_user.school_id)
+
+    teacher = query.first()
+    if not teacher:
+        raise HTTPException(status_code=404, detail="Teacher not found")
+    if not teacher.email:
+        raise HTTPException(status_code=400, detail="Teacher has no email; cannot generate credentials")
+
+    temporary_password = secrets.token_urlsafe(8)
+    user = db.query(User).filter(User.email == teacher.email).first()
+    if not user:
+        user = User(
+            school_id=teacher.school_id,
+            email=teacher.email,
+            full_name=teacher.full_name,
+            hashed_password=get_password_hash(temporary_password),
+            role=UserRole.TEACHER,
+            must_change_password=True,
+            is_active=True,
+        )
+        db.add(user)
+    else:
+        user.full_name = teacher.full_name
+        user.school_id = teacher.school_id
+        user.role = UserRole.TEACHER
+        user.hashed_password = get_password_hash(temporary_password)
+        user.must_change_password = True
+        user.is_active = True
+
+    db.commit()
+    return {
+        "message": "Teacher credentials generated",
+        "email": teacher.email,
+        "temporary_password": temporary_password,
+        "must_change_password": True,
     }
 
 
