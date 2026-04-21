@@ -172,10 +172,34 @@ def portal_dashboard(db: Session = Depends(get_db), current_user: User = Depends
                 ClassSection.is_active == True,
             ).order_by(ClassSection.class_name, ClassSection.section).all()
 
-        student_count = db.query(Student).filter(
-            Student.school_id == school_id,
-            Student.is_active == True,
-        ).count()
+        # Count only students in this teacher's assigned classes
+        pairs: set[tuple[str, str]] = set()
+        for cs in my_sections:
+            pairs.add((cs.class_name, cs.section))
+        for s in my_subjects:
+            if s.class_name:
+                pairs.add((s.class_name, s.section or ""))
+
+        if pairs:
+            all_students = db.query(Student).filter(
+                Student.school_id == school_id,
+                Student.is_active == True,
+            ).all()
+            student_count = sum(
+                1 for st in all_students
+                for cn, sec in pairs
+                if st.class_name == cn and (not sec or st.section == sec)
+            )
+            # deduplicate (student could match multiple pairs)
+            matched_ids = set()
+            for st in all_students:
+                for cn, sec in pairs:
+                    if st.class_name == cn and (not sec or st.section == sec):
+                        matched_ids.add(st.id)
+                        break
+            student_count = len(matched_ids)
+        else:
+            student_count = 0
 
         assignments = db.query(Assignment).filter(
             Assignment.school_id == school_id,
