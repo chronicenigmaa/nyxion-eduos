@@ -1,17 +1,15 @@
 "use client";
 import { useAuth } from "@/context/AuthContext";
-import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) router.push("/login");
-    if (!loading && user && user.role === "teacher") router.push("/portal");
-  }, [user, loading, router]);
+    if (!loading && !user) window.location.href = "/login";
+    if (!loading && user && user.role === "teacher") window.location.href = "/portal";
+  }, [user, loading]);
 
   if (loading) return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center">

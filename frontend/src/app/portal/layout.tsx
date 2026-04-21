@@ -1,6 +1,6 @@
 "use client";
 import { useAuth } from "@/context/AuthContext";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -16,12 +16,11 @@ const nav = [
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, logout } = useAuth();
-  const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && !user) router.push("/login");
-  }, [user, loading, router]);
+    if (!loading && !user) window.location.href = "/login";
+  }, [user, loading]);
 
   if (loading) return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -56,9 +55,9 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         </nav>
         <div className="p-3 border-t border-slate-100">
           {user.role !== "teacher" && (
-            <Link href="/dashboard" className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-slate-500 hover:bg-slate-50 mb-1">
+            <a href="/dashboard" className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-slate-500 hover:bg-slate-50 mb-1">
               Back to Admin
-            </Link>
+            </a>
           )}
           <button onClick={logout} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-500 hover:bg-red-50 hover:text-red-600 transition-all w-full">
             <LogOut size={16}/> Sign out
