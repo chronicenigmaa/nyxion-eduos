@@ -287,27 +287,35 @@ export default function AcademicsPage() {
         <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <h2 className="text-slate-900 font-semibold mb-4">Classes and Sections</h2>
           {loading ? <p className="text-slate-400 text-sm">Loading...</p>
-            : sections.length === 0 ? <p className="text-slate-400 text-sm">No sections yet</p>
-            : sections.map((sec) => (
-              <div key={sec.id} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
-                <div>
-                  <p className="text-slate-900 text-sm font-medium">Class {sec.class_name}{sec.section}</p>
-                  <p className="text-slate-400 text-xs">Class Teacher: {sec.class_teacher_name || "Not assigned"}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium">
-                    {students.filter((s) => s.class_name === sec.class_name).length} students
-                  </span>
-                  <button
-                    onClick={() => openEdit(sec)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
-                    title="Edit class teacher & subjects"
-                  >
-                    <Pencil size={14} />
-                  </button>
-                </div>
-              </div>
-            ))}
+            : classes.length === 0 ? <p className="text-slate-400 text-sm">No classes yet</p>
+            : classes.map((cl) =>
+              (cl.sections && cl.sections.length > 0 ? cl.sections : [""]).map((sectionLabel) => {
+                const sec = sections.find(s => s.class_name === cl.class_name && s.section === sectionLabel);
+                const editTarget: Section = sec ?? { id: "", class_name: cl.class_name, section: sectionLabel, class_teacher_id: null, class_teacher_name: null };
+                return (
+                  <div key={cl.class_name + sectionLabel} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
+                    <div>
+                      <p className="text-slate-900 text-sm font-medium">Class {cl.class_name}{sectionLabel ? " - " + sectionLabel : ""}</p>
+                      <p className="text-slate-400 text-xs">Class Teacher: {sec?.class_teacher_name || "Not assigned"}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium">
+                        {students.filter((s) => s.class_name === cl.class_name).length} students
+                      </span>
+                      {sec && (
+                        <button
+                          onClick={() => openEdit(editTarget)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                          title="Edit class teacher & subjects"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
         </div>
         <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <h2 className="text-slate-900 font-semibold mb-4">Subjects and Teacher Assignments</h2>

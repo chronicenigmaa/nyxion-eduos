@@ -10,6 +10,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (!loading && !user) router.push("/login");
+    if (!loading && user && user.role === "teacher") router.push("/portal");
   }, [user, loading, router]);
 
   if (loading) return (
