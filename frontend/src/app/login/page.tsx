@@ -5,7 +5,6 @@ import toast from "react-hot-toast";
 import Image from "next/image";
 
 type ApiError = { response?: { data?: { detail?: string } } };
-const isPortalRole = (role?: string) => role === "teacher" || role === "student" || role === "parent";
 
 export default function LoginPage() {
   const { login, changePassword } = useAuth();
@@ -26,7 +25,7 @@ export default function LoginPage() {
         toast("Set a new password to continue.");
       } else {
         toast.success("Welcome to Nyxion EduOS!");
-        window.location.href = isPortalRole(loggedInUser.role) ? "/portal" : "/dashboard";
+        window.location.href = loggedInUser.role === "teacher" ? "/portal" : "/dashboard";
       }
     } catch {
       toast.error("Invalid credentials");
@@ -49,7 +48,7 @@ export default function LoginPage() {
     try {
       const updatedUser = await changePassword(password, newPassword);
       toast.success("Password updated successfully!");
-      window.location.href = isPortalRole(updatedUser.role) ? "/portal" : "/dashboard";
+      window.location.href = updatedUser.role === "teacher" ? "/portal" : "/dashboard";
     } catch (error: unknown) {
       toast.error((error as ApiError)?.response?.data?.detail || "Failed to change password");
     } finally {

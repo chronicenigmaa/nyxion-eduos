@@ -146,84 +146,35 @@ def portal_dashboard(db: Session = Depends(get_db), current_user: User = Depends
         }
 
     if current_user.role.value == "teacher":
-        from app.models.subject import Subject
-        from app.models.class_section import ClassSection
-
-        teacher = db.query(Teacher).filter(
-            Teacher.school_id == school_id,
-            Teacher.email == current_user.email,
-            Teacher.is_active == True,
-        ).first()
-
-        teacher_id = teacher.id if teacher else None
-
-        my_subjects = []
-        my_sections = []
-        if teacher_id:
-            my_subjects = db.query(Subject).filter(
-                Subject.school_id == school_id,
-                Subject.teacher_id == teacher_id,
-                Subject.is_active == True,
-            ).order_by(Subject.class_name, Subject.name).all()
-
-            my_sections = db.query(ClassSection).filter(
-                ClassSection.school_id == school_id,
-                ClassSection.class_teacher_id == teacher_id,
-                ClassSection.is_active == True,
-            ).order_by(ClassSection.class_name, ClassSection.section).all()
-
-        student_count = db.query(Student).filter(
-            Student.school_id == school_id,
-            Student.is_active == True,
-        ).count()
-
+        # Teacher dashboard
         assignments = db.query(Assignment).filter(
-            Assignment.school_id == school_id,
+            Assignment.school_id == school_id
         ).order_by(Assignment.created_at.desc()).limit(5).all()
 
+        students = db.query(Student).filter(
+            Student.school_id == school_id, Student.is_active == True
+        ).count()
+
         today = date.today()
+        from app.models.attendance import Attendance
         attendance_today = db.query(Attendance).filter(
             Attendance.school_id == school_id,
-            Attendance.date == today,
+            Attendance.date == today
         ).count()
 
         return {
             "role": "teacher",
             "name": current_user.full_name,
             "stats": {
-                "total_students": student_count,
-                "subjects_teaching": len(my_subjects),
-                "class_teacher_of": len(my_sections),
-                "attendance_marked_today": attendance_today,
+                "total_students": students,
+                "assignments_created": len(assignments),
+                "attendance_marked_today": attendance_today
             },
-            "my_subjects": [
-                {
-                    "id": str(s.id),
-                    "name": s.name,
-                    "class_name": s.class_name,
-                    "section": s.section,
-                    "description": s.description,
-                }
-                for s in my_subjects
-            ],
-            "my_sections": [
-                {
-                    "id": str(sec.id),
-                    "class_name": sec.class_name,
-                    "section": sec.section,
-                }
-                for sec in my_sections
-            ],
             "recent_assignments": [
-                {
-                    "id": str(a.id),
-                    "title": a.title,
-                    "class_name": a.class_name,
-                    "due_date": str(a.due_date) if a.due_date else None,
-                    "total_marks": a.total_marks,
-                }
+                {"id": str(a.id), "title": a.title, "class_name": a.class_name,
+                 "due_date": str(a.due_date) if a.due_date else None, "total_marks": a.total_marks}
                 for a in assignments
-            ],
+            ]
         }
 
     elif current_user.role.value == "student":
