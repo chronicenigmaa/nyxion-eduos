@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
-import { ClipboardList, TrendingUp, DollarSign, Users, Bell, BookOpen, UserCheck } from "lucide-react";
+import { ClipboardList, TrendingUp, DollarSign, Users, Bell } from "lucide-react";
 
 export default function PortalPage() {
   const [data, setData] = useState<any>(null);
@@ -15,49 +15,6 @@ export default function PortalPage() {
   if (!data) return <div className="p-8 text-slate-400">Could not load dashboard.</div>;
 
   const stats = data.stats || {};
-  const isTeacher = data.role === "teacher";
-
-  if (isTeacher) {
-    return (
-      <div className="p-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-slate-900">Welcome, {data.name?.split(" ")[0]}</h1>
-          <p className="text-slate-500 mt-1">Teacher Dashboard</p>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-          {[
-            { label: "Total Students", value: stats.total_students || 0, icon: Users, color: "text-blue-600", bg: "bg-blue-50" },
-            { label: "Assignments Created", value: stats.assignments_created || 0, icon: ClipboardList, color: "text-amber-600", bg: "bg-amber-50" },
-            { label: "Attendance Marked Today", value: stats.attendance_marked_today || 0, icon: UserCheck, color: "text-green-600", bg: "bg-green-50" },
-          ].map(({ label, value, icon: Icon, color, bg }) => (
-            <div key={label} className="bg-white rounded-2xl border border-slate-200 p-5">
-              <div className={"w-10 h-10 rounded-xl " + bg + " flex items-center justify-center mb-3"}>
-                <Icon size={20} className={color}/>
-              </div>
-              <p className="text-2xl font-bold text-slate-900">{value}</p>
-              <p className="text-slate-500 text-sm mt-1">{label}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200 p-6">
-          <h2 className="text-slate-900 font-semibold mb-4 flex items-center gap-2"><BookOpen size={16} className="text-blue-600"/> Recent Assignments</h2>
-          {(data.recent_assignments || []).length === 0
-            ? <p className="text-slate-400 text-sm">No assignments created yet</p>
-            : (data.recent_assignments || []).map((a: any) => (
-              <div key={a.id} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
-                <div>
-                  <p className="text-slate-900 text-sm font-medium">{a.title}</p>
-                  <p className="text-slate-400 text-xs">{a.class_name ? "Class " + a.class_name : "All classes"}{a.due_date ? " · Due " + new Date(a.due_date).toLocaleDateString() : ""}</p>
-                </div>
-                <span className="text-slate-500 text-xs">{a.total_marks} marks</span>
-              </div>
-            ))}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="p-8">
