@@ -27,7 +27,7 @@ export default function LoginPage() {
         toast("Set a new password to continue.");
       } else {
         toast.success("Welcome to Nyxion EduOS!");
-        router.push("/dashboard");
+        router.push(loggedInUser.role === "teacher" ? "/portal" : "/dashboard");
       }
     } catch {
       toast.error("Invalid credentials");
@@ -48,12 +48,9 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      await changePassword(password, newPassword);
-      toast.success("Password updated. Please sign in again.");
-      setRequirePasswordChange(false);
-      setPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
+      const updatedUser = await changePassword(password, newPassword);
+      toast.success("Password updated successfully!");
+      router.push(updatedUser.role === "teacher" ? "/portal" : "/dashboard");
     } catch (error: unknown) {
       toast.error((error as ApiError)?.response?.data?.detail || "Failed to change password");
     } finally {
