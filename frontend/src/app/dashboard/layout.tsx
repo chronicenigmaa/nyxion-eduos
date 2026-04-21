@@ -19,7 +19,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 
-  if (!user) return null;
+  if (!user || user.role === "teacher") return null;
 
   return (
     <div className="flex min-h-screen bg-slate-50">
