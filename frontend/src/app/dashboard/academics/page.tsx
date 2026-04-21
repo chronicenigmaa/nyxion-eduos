@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { Plus, TrendingUp, AlertCircle, Lightbulb, BarChart2, Pencil, X } from "lucide-react";
 import AIInsightsPanel from "@/components/AIInsightsPanel";
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
 
 type Subject = {
   id: string;
@@ -19,6 +20,7 @@ type ClassSummary = { class_name: string; sections?: string[] };
 type Section = { id: string; class_name: string; section: string; class_teacher_id?: string | null; class_teacher_name?: string | null };
 type Teacher = { id: string; full_name: string };
 type Student = { id: string; class_name?: string | null };
+type School = { id: string; name: string; code: string };
 type ApiError = { response?: { data?: { detail?: string } } };
 
 type EditState = {
@@ -28,19 +30,21 @@ type EditState = {
 };
 
 export default function AcademicsPage() {
+  const { user } = useAuth();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [classes, setClasses] = useState<ClassSummary[]>([]);
   const [sections, setSections] = useState<Section[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
   const [showSubjectForm, setShowSubjectForm] = useState(false);
   const [showSectionForm, setShowSectionForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editState, setEditState] = useState<EditState | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const [subjectForm, setSubjectForm] = useState({ name: "", class_name: "", section: "", teacher_id: "", description: "" });
-  const [sectionForm, setSectionForm] = useState({ class_name: "", section: "" });
+  const [subjectForm, setSubjectForm] = useState({ school_id: "", name: "", class_name: "", section: "", teacher_id: "", description: "" });
+  const [sectionForm, setSectionForm] = useState({ school_id: "", class_name: "", section: "" });
 
   const load = async () => {
     try {
@@ -68,14 +72,27 @@ export default function AcademicsPage() {
     }
   };
   useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    const loadSchools = async () => {
+      if (user?.role !== "super_admin") return;
+      try {
+        const { data } = await api.get("/api/v1/schools");
+        setSchools(data);
+      } catch {
+        toast.error("Failed to load schools");
+      }
+    };
+    void loadSchools();
+  }, [user?.role]);
 
   const handleSubjectSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post("/api/v1/academics/subjects", subjectForm);
+      const payload = user?.role === "super_admin" ? subjectForm : { ...subjectForm, school_id: undefined };
+      await api.post("/api/v1/academics/subjects", payload);
       toast.success("Subject added");
       setShowSubjectForm(false);
-      setSubjectForm({ name: "", class_name: "", section: "", teacher_id: "", description: "" });
+      setSubjectForm({ school_id: "", name: "", class_name: "", section: "", teacher_id: "", description: "" });
       await load();
     } catch (error: unknown) {
       toast.error((error as ApiError)?.response?.data?.detail || "Failed to add subject");
@@ -85,10 +102,11 @@ export default function AcademicsPage() {
   const handleSectionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post("/api/v1/academics/sections", sectionForm);
+      const payload = user?.role === "super_admin" ? sectionForm : { ...sectionForm, school_id: undefined };
+      await api.post("/api/v1/academics/sections", payload);
       toast.success("Section added");
       setShowSectionForm(false);
-      setSectionForm({ class_name: "", section: "" });
+      setSectionForm({ school_id: "", class_name: "", section: "" });
       await load();
     } catch (error: unknown) {
       toast.error((error as ApiError)?.response?.data?.detail || "Failed to add section");
@@ -172,6 +190,22 @@ export default function AcademicsPage() {
         <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
           <h2 className="text-slate-900 font-semibold mb-4">Add Class Section</h2>
           <form onSubmit={handleSectionSubmit} className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {user?.role === "super_admin" && (
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">School</label>
+                <select
+                  value={sectionForm.school_id}
+                  onChange={(e) => setSectionForm({ ...sectionForm, school_id: e.target.value })}
+                  required
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-900 text-sm focus:outline-none"
+                >
+                  <option value="">Select school</option>
+                  {schools.map((school) => (
+                    <option key={school.id} value={school.id}>{school.name} ({school.code})</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="block text-xs text-slate-500 mb-1">Class</label>
               <input value={sectionForm.class_name} onChange={(e) => setSectionForm({ ...sectionForm, class_name: e.target.value })} required className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
@@ -192,6 +226,22 @@ export default function AcademicsPage() {
         <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
           <h2 className="text-slate-900 font-semibold mb-4">Add Subject and Assign Teacher</h2>
           <form onSubmit={handleSubjectSubmit} className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {user?.role === "super_admin" && (
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">School</label>
+                <select
+                  value={subjectForm.school_id}
+                  onChange={(e) => setSubjectForm({ ...subjectForm, school_id: e.target.value })}
+                  required
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-900 text-sm focus:outline-none"
+                >
+                  <option value="">Select school</option>
+                  {schools.map((school) => (
+                    <option key={school.id} value={school.id}>{school.name} ({school.code})</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="block text-xs text-slate-500 mb-1">Subject Name</label>
               <input value={subjectForm.name} onChange={(e) => setSubjectForm({ ...subjectForm, name: e.target.value })} required className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />

@@ -16,6 +16,7 @@ router = APIRouter()
 
 class SubjectCreate(BaseModel):
     name: str
+    school_id: Optional[uuid.UUID] = None
     class_name: Optional[str] = None
     section: Optional[str] = None
     teacher_id: Optional[uuid.UUID] = None
@@ -23,6 +24,7 @@ class SubjectCreate(BaseModel):
 
 
 class SectionCreate(BaseModel):
+    school_id: Optional[uuid.UUID] = None
     class_name: str
     section: str
 
@@ -64,8 +66,13 @@ def list_subjects(db: Session = Depends(get_db), current_user: User = Depends(ge
 
 @router.post("/subjects")
 def create_subject(data: SubjectCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if not current_user.school_id:
-        raise HTTPException(status_code=400, detail="No school associated")
+    if current_user.role.value == "super_admin":
+        target_school_id = data.school_id or current_user.school_id
+    else:
+        target_school_id = current_user.school_id
+
+    if not target_school_id:
+        raise HTTPException(status_code=400, detail="Select a school before creating a subject")
 
     class_name = data.class_name.strip() if data.class_name else None
     section = data.section.strip().upper() if data.section else None
@@ -73,7 +80,7 @@ def create_subject(data: SubjectCreate, db: Session = Depends(get_db), current_u
     if data.teacher_id:
         teacher = db.query(Teacher).filter(
             Teacher.id == data.teacher_id,
-            Teacher.school_id == current_user.school_id,
+            Teacher.school_id == target_school_id,
             Teacher.is_active == True,
         ).first()
         if not teacher:
@@ -85,19 +92,19 @@ def create_subject(data: SubjectCreate, db: Session = Depends(get_db), current_u
         section=section,
         teacher_id=data.teacher_id,
         description=data.description,
-        school_id=current_user.school_id,
+        school_id=target_school_id,
     )
     db.add(subject)
 
     if class_name and section:
         existing_section = db.query(ClassSection).filter(
-            ClassSection.school_id == current_user.school_id,
+            ClassSection.school_id == target_school_id,
             ClassSection.class_name == class_name,
             ClassSection.section == section,
             ClassSection.is_active == True,
         ).first()
         if not existing_section:
-            db.add(ClassSection(school_id=current_user.school_id, class_name=class_name, section=section))
+            db.add(ClassSection(school_id=target_school_id, class_name=class_name, section=section))
 
     db.commit()
     db.refresh(subject)
@@ -213,8 +220,12 @@ def update_subject(
 
 @router.post("/sections")
 def create_section(data: SectionCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if not current_user.school_id:
-        raise HTTPException(status_code=400, detail="No school associated")
+    if current_user.role.value == "super_admin":
+        target_school_id = data.school_id or current_user.school_id
+    else:
+        target_school_id = current_user.school_id
+    if not target_school_id:
+        raise HTTPException(status_code=400, detail="Select a school before creating a section")
 
     class_name = data.class_name.strip()
     section = data.section.strip().upper()
@@ -223,7 +234,7 @@ def create_section(data: SectionCreate, db: Session = Depends(get_db), current_u
         raise HTTPException(status_code=400, detail="Class and section are required")
 
     existing = db.query(ClassSection).filter(
-        ClassSection.school_id == current_user.school_id,
+        ClassSection.school_id == target_school_id,
         ClassSection.class_name == class_name,
         ClassSection.section == section,
         ClassSection.is_active == True,
@@ -232,7 +243,7 @@ def create_section(data: SectionCreate, db: Session = Depends(get_db), current_u
         raise HTTPException(status_code=400, detail="This section already exists for the class")
 
     record = ClassSection(
-        school_id=current_user.school_id,
+        school_id=target_school_id,
         class_name=class_name,
         section=section,
         is_active=True,
