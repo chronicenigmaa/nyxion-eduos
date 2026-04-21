@@ -310,6 +310,74 @@ def portal_dashboard(db: Session = Depends(get_db), current_user: User = Depends
 
     raise HTTPException(status_code=403, detail="Invalid role for portal")
 
+@router.get("/my-students")
+def my_students(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    from app.models.subject import Subject
+    from app.models.class_section import ClassSection
+
+    school_id = current_user.school_id
+    if not school_id:
+        raise HTTPException(status_code=400, detail="No school associated")
+
+    teacher = db.query(Teacher).filter(
+        Teacher.school_id == school_id,
+        Teacher.email == current_user.email,
+        Teacher.is_active == True,
+    ).first()
+
+    if not teacher:
+        return {"students": [], "classes": []}
+
+    # Classes where teacher is class teacher
+    class_sections = db.query(ClassSection).filter(
+        ClassSection.school_id == school_id,
+        ClassSection.class_teacher_id == teacher.id,
+        ClassSection.is_active == True,
+    ).all()
+
+    # Classes where teacher teaches a subject
+    taught = db.query(Subject).filter(
+        Subject.school_id == school_id,
+        Subject.teacher_id == teacher.id,
+        Subject.is_active == True,
+    ).all()
+
+    # Collect unique (class_name, section) pairs
+    pairs: set[tuple[str, str]] = set()
+    for cs in class_sections:
+        pairs.add((cs.class_name, cs.section))
+    for s in taught:
+        if s.class_name:
+            pairs.add((s.class_name, s.section or ""))
+
+    if not pairs:
+        return {"students": [], "classes": []}
+
+    students = db.query(Student).filter(
+        Student.school_id == school_id,
+        Student.is_active == True,
+    ).all()
+
+    result = []
+    for student in students:
+        for class_name, section in pairs:
+            if student.class_name == class_name and (not section or student.section == section):
+                result.append({
+                    "id": str(student.id),
+                    "full_name": student.full_name,
+                    "father_name": student.father_name,
+                    "roll_number": student.roll_number,
+                    "class_name": student.class_name,
+                    "section": student.section,
+                    "phone": student.phone,
+                })
+                break
+
+    result.sort(key=lambda x: (x["class_name"] or "", x["section"] or "", x["full_name"]))
+    classes = sorted({f"{s['class_name']}{s['section']}" for s in result if s["class_name"]})
+    return {"students": result, "classes": classes}
+
+
 @router.post("/submit-assignment")
 def submit_assignment(data: SubmissionCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     school_id = current_user.school_id
