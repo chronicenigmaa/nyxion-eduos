@@ -3,12 +3,14 @@ import { useAuth } from "@/context/AuthContext";
 import { useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 
+const isPortalRole = (role?: string) => role === "teacher" || role === "student" || role === "parent";
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
 
   useEffect(() => {
     if (!loading && !user) window.location.href = "/login";
-    if (!loading && user && user.role === "teacher") window.location.href = "/portal";
+    if (!loading && user && isPortalRole(user.role)) window.location.href = "/portal";
   }, [user, loading]);
 
   if (loading) return (
@@ -17,7 +19,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 
-  if (!user || user.role === "teacher") return null;
+  if (!user || isPortalRole(user.role)) return null;
 
   return (
     <div className="flex min-h-screen bg-slate-50">
