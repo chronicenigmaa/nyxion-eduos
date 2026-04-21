@@ -1,13 +1,14 @@
 "use client";
 import { useAuth } from "@/context/AuthContext";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { LayoutDashboard, ClipboardList, TrendingUp, Calendar, BookOpen, LogOut, ChevronRight } from "lucide-react";
+import { LayoutDashboard, ClipboardList, TrendingUp, Calendar, BookOpen, LogOut, ChevronRight, Users } from "lucide-react";
 
 const nav = [
-  { href: "/portal",             label: "Dashboard",   icon: LayoutDashboard },
+  { href: "/portal",             label: "Home",        icon: LayoutDashboard },
+  { href: "/portal/students",    label: "Students",    icon: Users },
   { href: "/portal/assignments", label: "Assignments", icon: ClipboardList },
   { href: "/portal/results",     label: "Results",     icon: TrendingUp },
   { href: "/portal/timetable",   label: "Timetable",   icon: Calendar },
@@ -16,12 +17,11 @@ const nav = [
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, logout } = useAuth();
-  const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && !user) router.push("/login");
-  }, [user, loading, router]);
+    if (!loading && !user) window.location.href = "/login";
+  }, [user, loading]);
 
   if (loading) return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -35,7 +35,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       <aside className="w-60 bg-white border-r border-slate-200 flex flex-col">
         <div className="p-5 border-b border-slate-100">
           <Image src="/logo-light.svg" alt="Nyxion" width={110} height={34} priority/>
-          <p className="text-slate-400 text-xs mt-2">Student Portal</p>
+          <p className="text-slate-400 text-xs mt-2">{user?.role === "teacher" ? "Teacher Portal" : "Student Portal"}</p>
         </div>
         <div className="px-4 py-3 border-b border-slate-100">
           <p className="text-slate-900 text-sm font-medium">{user.full_name}</p>
