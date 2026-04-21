@@ -98,6 +98,58 @@ def create_user(
     return user
 
 
+class UserUpdateRequest(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    role: Optional[UserRole] = None
+    school_id: Optional[uuid.UUID] = None
+    new_password: Optional[str] = None
+
+
+@router.patch("/{user_id}", response_model=UserOut)
+def update_user(
+    user_id: uuid.UUID,
+    payload: UserUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _assert_can_manage_users(current_user)
+
+    query = db.query(User).filter(User.id == user_id)
+    if not _is_super_admin(current_user):
+        if not current_user.school_id:
+            raise HTTPException(status_code=400, detail="No school associated")
+        query = query.filter(User.school_id == current_user.school_id)
+
+    user = query.first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if payload.full_name is not None:
+        user.full_name = payload.full_name
+    if payload.email is not None:
+        existing = db.query(User).filter(User.email == payload.email, User.id != user_id).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Email already in use")
+        user.email = payload.email
+    if payload.role is not None:
+        if not _is_super_admin(current_user):
+            raise HTTPException(status_code=403, detail="Only super admins can change roles")
+        user.role = payload.role
+    if payload.school_id is not None:
+        user.school_id = payload.school_id
+    if payload.new_password is not None:
+        if len(payload.new_password) < 6:
+            raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+        from app.core.security import get_password_hash
+        user.hashed_password = get_password_hash(payload.new_password)
+        user.must_change_password = True
+
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 @router.delete("/{user_id}")
 def deactivate_user(user_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     _assert_can_manage_users(current_user)

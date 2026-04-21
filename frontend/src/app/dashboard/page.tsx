@@ -64,7 +64,7 @@ export default function DashboardPage() {
   const superAdminQuickLinks = [
     { label: "School Info", href: "/dashboard/schools", icon: Building2, color: "bg-slate-900" },
     { label: "Feature Toggles", href: "/dashboard/schools", icon: Settings, color: "bg-indigo-600" },
-    { label: "Manage Users", href: "/dashboard/users", icon: Users, color: "bg-blue-700" },
+    { label: "Admin Users", href: "/dashboard/users?role=school_admin", icon: Users, color: "bg-blue-700" },
   ];
   const quickActions = user?.role === "super_admin" ? [...quickLinks, ...superAdminQuickLinks] : quickLinks;
   const featuredSchools = schools.slice(0, 3);
