@@ -402,6 +402,85 @@ def my_students(db: Session = Depends(get_db), current_user: User = Depends(get_
     return {"students": result, "classes": classes}
 
 
+@router.get("/class-results")
+def class_results(class_name: str, section: str = "", term: str = "", db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    from app.models.subject import Subject
+    from app.models.class_section import ClassSection
+
+    school_id = current_user.school_id
+    if not school_id:
+        raise HTTPException(status_code=400, detail="No school associated")
+
+    teacher = db.query(Teacher).filter(
+        Teacher.school_id == school_id,
+        Teacher.email == current_user.email,
+        Teacher.is_active == True,
+    ).first()
+    if not teacher:
+        raise HTTPException(status_code=403, detail="Teacher record not found")
+
+    # Verify teacher has access to this class
+    class_sections = db.query(ClassSection).filter(
+        ClassSection.school_id == school_id,
+        ClassSection.class_teacher_id == teacher.id,
+        ClassSection.is_active == True,
+    ).all()
+    taught = db.query(Subject).filter(
+        Subject.school_id == school_id,
+        Subject.teacher_id == teacher.id,
+        Subject.is_active == True,
+    ).all()
+    pairs: set[tuple[str, str]] = set()
+    for cs in class_sections:
+        pairs.add((cs.class_name, cs.section))
+    for s in taught:
+        if s.class_name:
+            pairs.add((s.class_name, s.section or ""))
+
+    if not any(cn == class_name and (not sec or sec == section) for cn, sec in pairs):
+        raise HTTPException(status_code=403, detail="Access denied to this class")
+
+    students = db.query(Student).filter(
+        Student.school_id == school_id,
+        Student.class_name == class_name,
+        Student.is_active == True,
+    ).all()
+    if section:
+        students = [s for s in students if s.section == section]
+
+    result_data = []
+    for st in sorted(students, key=lambda x: (x.roll_number or "", x.full_name)):
+        q = db.query(Result).filter(Result.student_id == st.id)
+        if term:
+            q = q.filter(Result.term == term)
+        results = q.all()
+        attendance = db.query(Attendance).filter(Attendance.student_id == st.id).all()
+        present = sum(1 for a in attendance if a.status == AttendanceStatus.PRESENT)
+        att_rate = round((present / len(attendance)) * 100, 1) if attendance else 0
+        result_data.append({
+            "id": str(st.id),
+            "full_name": st.full_name,
+            "roll_number": st.roll_number,
+            "class_name": st.class_name,
+            "section": st.section,
+            "attendance_rate": att_rate,
+            "results": [
+                {
+                    "subject": r.subject_name,
+                    "exam_type": r.exam_type,
+                    "marks_obtained": r.marks_obtained,
+                    "total_marks": r.total_marks,
+                    "grade": r.grade,
+                    "term": r.term,
+                }
+                for r in results
+            ],
+        })
+
+    terms = sorted({r.term for st_r in result_data for r in st_r["results"] if r["term"]})
+    return {"students": result_data, "terms": terms}
+
+
 @router.get("/attendance")
 def portal_attendance(attendance_date: str = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     from app.models.subject import Subject
