@@ -55,9 +55,11 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           })}
         </nav>
         <div className="p-3 border-t border-slate-100">
-          <Link href="/dashboard" className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-slate-500 hover:bg-slate-50 mb-1">
-            Back to Admin
-          </Link>
+          {user.role !== "teacher" && (
+            <Link href="/dashboard" className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-slate-500 hover:bg-slate-50 mb-1">
+              Back to Admin
+            </Link>
+          )}
           <button onClick={logout} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-500 hover:bg-red-50 hover:text-red-600 transition-all w-full">
             <LogOut size={16}/> Sign out
           </button>

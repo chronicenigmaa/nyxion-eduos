@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
-import { ClipboardList, TrendingUp, DollarSign, Users, Bell } from "lucide-react";
+import { ClipboardList, TrendingUp, DollarSign, Users, Bell, BookOpen, GraduationCap, UserCheck } from "lucide-react";
 
 export default function PortalPage() {
   const [data, setData] = useState<any>(null);
@@ -15,6 +15,86 @@ export default function PortalPage() {
   if (!data) return <div className="p-8 text-slate-400">Could not load dashboard.</div>;
 
   const stats = data.stats || {};
+
+  if (data.role === "teacher") {
+    return (
+      <div className="p-8">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-slate-900">Welcome, {data.name?.split(" ")[0]}</h1>
+          <p className="text-slate-500 mt-1">Teacher Overview</p>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          {[
+            { label: "Total Students", value: stats.total_students ?? 0, icon: Users, color: "text-blue-600", bg: "bg-blue-50" },
+            { label: "Subjects Teaching", value: stats.subjects_teaching ?? 0, icon: BookOpen, color: "text-purple-600", bg: "bg-purple-50" },
+            { label: "Class Teacher Of", value: stats.class_teacher_of ?? 0, icon: GraduationCap, color: "text-green-600", bg: "bg-green-50" },
+            { label: "Attendance Today", value: stats.attendance_marked_today ?? 0, icon: UserCheck, color: "text-amber-600", bg: "bg-amber-50" },
+          ].map(({ label, value, icon: Icon, color, bg }) => (
+            <div key={label} className="bg-white rounded-2xl border border-slate-200 p-5">
+              <div className={"w-10 h-10 rounded-xl " + bg + " flex items-center justify-center mb-3"}>
+                <Icon size={20} className={color} />
+              </div>
+              <p className="text-2xl font-bold text-slate-900">{value}</p>
+              <p className="text-slate-500 text-sm mt-1">{label}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white rounded-2xl border border-slate-200 p-6">
+            <h2 className="text-slate-900 font-semibold mb-4 flex items-center gap-2">
+              <BookOpen size={16} className="text-purple-600" /> My Subjects
+            </h2>
+            {(data.my_subjects || []).length === 0
+              ? <p className="text-slate-400 text-sm">No subjects assigned yet</p>
+              : (data.my_subjects || []).map((s: any) => (
+                <div key={s.id} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
+                  <p className="text-slate-900 text-sm font-medium">{s.name}</p>
+                  <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">
+                    Class {s.class_name}{s.section ? " – " + s.section : ""}
+                  </span>
+                </div>
+              ))}
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 p-6">
+            <h2 className="text-slate-900 font-semibold mb-4 flex items-center gap-2">
+              <GraduationCap size={16} className="text-green-600" /> My Classes
+            </h2>
+            {(data.my_sections || []).length === 0
+              ? <p className="text-slate-400 text-sm">Not assigned as class teacher yet</p>
+              : (data.my_sections || []).map((sec: any) => (
+                <div key={sec.id} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
+                  <p className="text-slate-900 text-sm font-medium">Class {sec.class_name} – {sec.section}</p>
+                  <span className="text-xs text-green-700 bg-green-50 px-2 py-1 rounded-lg">Class Teacher</span>
+                </div>
+              ))}
+          </div>
+        </div>
+
+        {(data.recent_assignments || []).length > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 mt-6">
+            <h2 className="text-slate-900 font-semibold mb-4 flex items-center gap-2">
+              <ClipboardList size={16} className="text-blue-600" /> Recent Assignments
+            </h2>
+            {(data.recent_assignments || []).map((a: any) => (
+              <div key={a.id} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
+                <div>
+                  <p className="text-slate-900 text-sm font-medium">{a.title}</p>
+                  <p className="text-slate-400 text-xs">
+                    {a.class_name ? "Class " + a.class_name : "All classes"}
+                    {a.due_date ? " · Due " + new Date(a.due_date).toLocaleDateString() : ""}
+                  </p>
+                </div>
+                <span className="text-slate-500 text-xs">{a.total_marks} marks</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
@@ -34,7 +114,7 @@ export default function PortalPage() {
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className="bg-white rounded-2xl border border-slate-200 p-5">
             <div className={"w-10 h-10 rounded-xl " + bg + " flex items-center justify-center mb-3"}>
-              <Icon size={20} className={color}/>
+              <Icon size={20} className={color} />
             </div>
             <p className="text-2xl font-bold text-slate-900">{value}</p>
             <p className="text-slate-500 text-sm mt-1">{label}</p>
@@ -45,7 +125,8 @@ export default function PortalPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <h2 className="text-slate-900 font-semibold mb-4">Assignments</h2>
-          {(data.assignments || []).length === 0 ? <p className="text-slate-400 text-sm">No assignments</p>
+          {(data.assignments || []).length === 0
+            ? <p className="text-slate-400 text-sm">No assignments</p>
             : (data.assignments || []).slice(0, 5).map((a: any) => (
               <div key={a.id} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
                 <div>
@@ -60,8 +141,11 @@ export default function PortalPage() {
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-6">
-          <h2 className="text-slate-900 font-semibold mb-4 flex items-center gap-2"><Bell size={16} className="text-blue-600"/> Notices</h2>
-          {(data.notices || []).length === 0 ? <p className="text-slate-400 text-sm">No notices</p>
+          <h2 className="text-slate-900 font-semibold mb-4 flex items-center gap-2">
+            <Bell size={16} className="text-blue-600" /> Notices
+          </h2>
+          {(data.notices || []).length === 0
+            ? <p className="text-slate-400 text-sm">No notices</p>
             : (data.notices || []).map((n: any, i: number) => (
               <div key={i} className="py-3 border-b border-slate-50 last:border-0">
                 <p className="text-slate-900 text-sm font-medium">{n.title}</p>
