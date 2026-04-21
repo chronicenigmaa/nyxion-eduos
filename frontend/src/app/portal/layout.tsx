@@ -7,7 +7,7 @@ import Link from "next/link";
 import { LayoutDashboard, ClipboardList, TrendingUp, Calendar, BookOpen, LogOut, ChevronRight } from "lucide-react";
 
 const nav = [
-  { href: "/portal",             label: "Dashboard",   icon: LayoutDashboard },
+  { href: "/portal",             label: "Home",        icon: LayoutDashboard },
   { href: "/portal/assignments", label: "Assignments", icon: ClipboardList },
   { href: "/portal/results",     label: "Results",     icon: TrendingUp },
   { href: "/portal/timetable",   label: "Timetable",   icon: Calendar },
