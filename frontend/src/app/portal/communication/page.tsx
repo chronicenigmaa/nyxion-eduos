@@ -1,6 +1,6 @@
 "use client";
 import WhatsAppCenter from "@/components/WhatsAppCenter";
 
-export default function CommunicationPage() {
+export default function PortalCommunicationPage() {
   return <WhatsAppCenter />;
 }

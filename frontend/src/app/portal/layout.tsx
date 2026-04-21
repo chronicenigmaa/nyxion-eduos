@@ -4,12 +4,13 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { LayoutDashboard, ClipboardList, TrendingUp, Calendar, BookOpen, LogOut, ChevronRight, Users, CheckSquare, Sparkles } from "lucide-react";
+import { LayoutDashboard, ClipboardList, TrendingUp, Calendar, BookOpen, LogOut, ChevronRight, Users, CheckSquare, Sparkles, MessageSquare } from "lucide-react";
 
 const nav = [
   { href: "/portal",             label: "Home",        icon: LayoutDashboard },
   { href: "/portal/students",    label: "Students",    icon: Users },
   { href: "/portal/attendance",  label: "Attendance",  icon: CheckSquare },
+  { href: "/portal/communication", label: "WhatsApp",  icon: MessageSquare },
   { href: "/portal/ai-tools",    label: "AI Tools",    icon: Sparkles },
   { href: "/portal/assignments", label: "Assignments", icon: ClipboardList },
   { href: "/portal/results",     label: "Results",     icon: TrendingUp },
@@ -20,6 +21,7 @@ const nav = [
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, logout } = useAuth();
   const pathname = usePathname();
+  const items = nav.filter((item) => item.href !== "/portal/communication" || user?.role === "teacher");
 
   useEffect(() => {
     if (!loading && !user) window.location.href = "/login";
@@ -44,7 +46,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           <p className="text-slate-400 text-xs capitalize">{user.role.replace("_"," ")}</p>
         </div>
         <nav className="flex-1 p-3 space-y-0.5">
-          {nav.map(({ href, label, icon: Icon }) => {
+          {items.map(({ href, label, icon: Icon }) => {
             const active = pathname === href;
             return (
               <Link key={href} href={href}
