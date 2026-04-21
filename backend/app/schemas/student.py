@@ -1,7 +1,8 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from typing import Optional
 import uuid
 from datetime import date, datetime
+
 
 class StudentCreate(BaseModel):
     full_name: str
@@ -13,6 +14,9 @@ class StudentCreate(BaseModel):
     date_of_birth: Optional[date] = None
     phone: Optional[str] = None
     address: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+
 
 class StudentOut(BaseModel):
     id: uuid.UUID
@@ -24,6 +28,7 @@ class StudentOut(BaseModel):
     section: Optional[str]
     phone: Optional[str]
     address: Optional[str]
+    email: Optional[EmailStr]
     is_active: bool
     created_at: datetime
 
