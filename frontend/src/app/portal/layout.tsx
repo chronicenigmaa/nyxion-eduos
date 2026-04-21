@@ -4,12 +4,13 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { LayoutDashboard, ClipboardList, TrendingUp, Calendar, BookOpen, LogOut, ChevronRight, Users, CheckSquare } from "lucide-react";
+import { LayoutDashboard, ClipboardList, TrendingUp, Calendar, BookOpen, LogOut, ChevronRight, Users, CheckSquare, Sparkles } from "lucide-react";
 
 const nav = [
   { href: "/portal",             label: "Home",        icon: LayoutDashboard },
   { href: "/portal/students",    label: "Students",    icon: Users },
   { href: "/portal/attendance",  label: "Attendance",  icon: CheckSquare },
+  { href: "/portal/ai-tools",    label: "AI Tools",    icon: Sparkles },
   { href: "/portal/assignments", label: "Assignments", icon: ClipboardList },
   { href: "/portal/results",     label: "Results",     icon: TrendingUp },
   { href: "/portal/timetable",   label: "Timetable",   icon: Calendar },
