@@ -193,6 +193,12 @@ def ensure_core_schema():
         },
     )
     ensure_columns(
+        "class_sections",
+        {
+            "class_teacher_id": "UUID REFERENCES teachers(id)",
+        },
+    )
+    ensure_columns(
         "fees",
         {
             "month": "VARCHAR(20)",

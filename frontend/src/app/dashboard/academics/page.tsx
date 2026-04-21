@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
-import { Plus, TrendingUp, AlertCircle, Lightbulb, BarChart2 } from "lucide-react";
+import { Plus, TrendingUp, AlertCircle, Lightbulb, BarChart2, Pencil, X } from "lucide-react";
 import AIInsightsPanel from "@/components/AIInsightsPanel";
 import Link from "next/link";
 
@@ -16,10 +16,16 @@ type Subject = {
   teacher_name?: string | null;
 };
 type ClassSummary = { class_name: string; sections?: string[] };
-type Section = { id: string; class_name: string; section: string };
+type Section = { id: string; class_name: string; section: string; class_teacher_id?: string | null; class_teacher_name?: string | null };
 type Teacher = { id: string; full_name: string };
 type Student = { id: string; class_name?: string | null };
 type ApiError = { response?: { data?: { detail?: string } } };
+
+type EditState = {
+  section: Section;
+  classTeacherId: string;
+  subjectChanges: Record<string, string>; // subject_id -> teacher_id
+};
 
 export default function AcademicsPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -30,6 +36,8 @@ export default function AcademicsPage() {
   const [showSubjectForm, setShowSubjectForm] = useState(false);
   const [showSectionForm, setShowSectionForm] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [editState, setEditState] = useState<EditState | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const [subjectForm, setSubjectForm] = useState({ name: "", class_name: "", section: "", teacher_id: "", description: "" });
   const [sectionForm, setSectionForm] = useState({ class_name: "", section: "" });
@@ -84,6 +92,35 @@ export default function AcademicsPage() {
       await load();
     } catch (error: unknown) {
       toast.error((error as ApiError)?.response?.data?.detail || "Failed to add section");
+    }
+  };
+
+  const openEdit = (section: Section) => {
+    const sectionSubjects = subjects.filter(s => s.class_name === section.class_name && s.section === section.section);
+    const subjectChanges: Record<string, string> = {};
+    sectionSubjects.forEach(s => { subjectChanges[s.id] = s.teacher_id || ""; });
+    setEditState({ section, classTeacherId: section.class_teacher_id || "", subjectChanges });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editState) return;
+    setSaving(true);
+    try {
+      await api.patch(`/api/v1/academics/sections/${editState.section.id}`, {
+        class_teacher_id: editState.classTeacherId || null,
+      });
+      await Promise.all(
+        Object.entries(editState.subjectChanges).map(([subjectId, teacherId]) =>
+          api.patch(`/api/v1/academics/subjects/${subjectId}`, { teacher_id: teacherId || null })
+        )
+      );
+      toast.success("Saved successfully");
+      setEditState(null);
+      await load();
+    } catch (error: unknown) {
+      toast.error((error as ApiError)?.response?.data?.detail || "Failed to save");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -195,15 +232,80 @@ export default function AcademicsPage() {
         </div>
       )}
 
+      {editState && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 w-full max-w-lg shadow-xl">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-slate-900 font-semibold">Edit Class {editState.section.class_name}{editState.section.section}</h2>
+              <button onClick={() => setEditState(null)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+            </div>
+            <div className="mb-5">
+              <label className="block text-xs font-medium text-slate-500 mb-1.5">Class Teacher</label>
+              <select
+                value={editState.classTeacherId}
+                onChange={(e) => setEditState({ ...editState, classTeacherId: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">— No class teacher —</option>
+                {teachers.map((t) => <option key={t.id} value={t.id}>{t.full_name}</option>)}
+              </select>
+            </div>
+            {Object.keys(editState.subjectChanges).length > 0 && (
+              <div className="mb-5">
+                <p className="text-xs font-medium text-slate-500 mb-2">Subject Teachers</p>
+                <div className="space-y-2">
+                  {subjects.filter(s => s.class_name === editState.section.class_name && s.section === editState.section.section).map((s) => (
+                    <div key={s.id} className="flex items-center gap-3">
+                      <span className="text-sm text-slate-700 w-32 shrink-0">{s.name}</span>
+                      <select
+                        value={editState.subjectChanges[s.id] ?? ""}
+                        onChange={(e) => setEditState({ ...editState, subjectChanges: { ...editState.subjectChanges, [s.id]: e.target.value } })}
+                        className="flex-1 px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">— Unassigned —</option>
+                        {teachers.map((t) => <option key={t.id} value={t.id}>{t.full_name}</option>)}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {Object.keys(editState.subjectChanges).length === 0 && (
+              <p className="text-slate-400 text-xs mb-5">No subjects found for this section. Add subjects first.</p>
+            )}
+            <div className="flex gap-3">
+              <button onClick={handleSaveEdit} disabled={saving} className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium disabled:opacity-50">
+                {saving ? "Saving..." : "Save"}
+              </button>
+              <button onClick={() => setEditState(null)} className="px-5 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <h2 className="text-slate-900 font-semibold mb-4">Classes and Sections</h2>
           {loading ? <p className="text-slate-400 text-sm">Loading...</p>
-            : classes.length === 0 ? <p className="text-slate-400 text-sm">No classes yet</p>
-            : classes.map((cl) => (
-              <div key={cl.class_name} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
-                <div><p className="text-slate-900 text-sm font-medium">Class {cl.class_name}</p><p className="text-slate-400 text-xs">Sections: {cl.sections?.join(", ") || "-"}</p></div>
-                <span className="px-3 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium">{students.filter((s) => s.class_name === cl.class_name).length} students</span>
+            : sections.length === 0 ? <p className="text-slate-400 text-sm">No sections yet</p>
+            : sections.map((sec) => (
+              <div key={sec.id} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
+                <div>
+                  <p className="text-slate-900 text-sm font-medium">Class {sec.class_name}{sec.section}</p>
+                  <p className="text-slate-400 text-xs">Class Teacher: {sec.class_teacher_name || "Not assigned"}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium">
+                    {students.filter((s) => s.class_name === sec.class_name).length} students
+                  </span>
+                  <button
+                    onClick={() => openEdit(sec)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                    title="Edit class teacher & subjects"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                </div>
               </div>
             ))}
         </div>

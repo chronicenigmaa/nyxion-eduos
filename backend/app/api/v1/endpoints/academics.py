@@ -27,6 +27,14 @@ class SectionCreate(BaseModel):
     section: str
 
 
+class SectionUpdate(BaseModel):
+    class_teacher_id: Optional[uuid.UUID] = None
+
+
+class SubjectUpdate(BaseModel):
+    teacher_id: Optional[uuid.UUID] = None
+
+
 def _for_school(query, current_user: User, model):
     if current_user.role.value == "super_admin":
         return query
@@ -112,18 +120,95 @@ def create_subject(data: SubjectCreate, db: Session = Depends(get_db), current_u
 
 @router.get("/sections")
 def list_sections(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    query = db.query(ClassSection).filter(ClassSection.is_active == True)
+    query = db.query(ClassSection, Teacher).outerjoin(Teacher, ClassSection.class_teacher_id == Teacher.id).filter(ClassSection.is_active == True)
     query = _for_school(query, current_user, ClassSection)
-    sections = query.order_by(ClassSection.class_name.asc(), ClassSection.section.asc()).all()
+    rows = query.order_by(ClassSection.class_name.asc(), ClassSection.section.asc()).all()
 
     return [
         {
-            "id": str(item.id),
-            "class_name": item.class_name,
-            "section": item.section,
+            "id": str(cs.id),
+            "class_name": cs.class_name,
+            "section": cs.section,
+            "class_teacher_id": str(cs.class_teacher_id) if cs.class_teacher_id else None,
+            "class_teacher_name": t.full_name if t else None,
         }
-        for item in sections
+        for cs, t in rows
     ]
+
+
+@router.patch("/sections/{section_id}")
+def update_section(
+    section_id: uuid.UUID,
+    data: SectionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    query = db.query(ClassSection).filter(ClassSection.id == section_id, ClassSection.is_active == True)
+    if current_user.role.value != "super_admin":
+        query = query.filter(ClassSection.school_id == current_user.school_id)
+    cs = query.first()
+    if not cs:
+        raise HTTPException(status_code=404, detail="Section not found")
+
+    if data.class_teacher_id is not None:
+        if data.class_teacher_id == uuid.UUID("00000000-0000-0000-0000-000000000000"):
+            cs.class_teacher_id = None
+        else:
+            teacher = db.query(Teacher).filter(Teacher.id == data.class_teacher_id, Teacher.school_id == cs.school_id, Teacher.is_active == True).first()
+            if not teacher:
+                raise HTTPException(status_code=404, detail="Teacher not found")
+            cs.class_teacher_id = data.class_teacher_id
+    else:
+        cs.class_teacher_id = None
+
+    db.commit()
+    db.refresh(cs)
+    t = db.query(Teacher).filter(Teacher.id == cs.class_teacher_id).first() if cs.class_teacher_id else None
+    return {
+        "id": str(cs.id),
+        "class_name": cs.class_name,
+        "section": cs.section,
+        "class_teacher_id": str(cs.class_teacher_id) if cs.class_teacher_id else None,
+        "class_teacher_name": t.full_name if t else None,
+    }
+
+
+@router.patch("/subjects/{subject_id}")
+def update_subject(
+    subject_id: uuid.UUID,
+    data: SubjectUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    query = db.query(Subject).filter(Subject.id == subject_id, Subject.is_active == True)
+    if current_user.role.value != "super_admin":
+        query = query.filter(Subject.school_id == current_user.school_id)
+    subject = query.first()
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+
+    if data.teacher_id is not None:
+        if data.teacher_id == uuid.UUID("00000000-0000-0000-0000-000000000000"):
+            subject.teacher_id = None
+        else:
+            teacher = db.query(Teacher).filter(Teacher.id == data.teacher_id, Teacher.school_id == subject.school_id, Teacher.is_active == True).first()
+            if not teacher:
+                raise HTTPException(status_code=404, detail="Teacher not found")
+            subject.teacher_id = data.teacher_id
+    else:
+        subject.teacher_id = None
+
+    db.commit()
+    db.refresh(subject)
+    t = db.query(Teacher).filter(Teacher.id == subject.teacher_id).first() if subject.teacher_id else None
+    return {
+        "id": str(subject.id),
+        "name": subject.name,
+        "class_name": subject.class_name,
+        "section": subject.section,
+        "teacher_id": str(subject.teacher_id) if subject.teacher_id else None,
+        "teacher_name": t.full_name if t else None,
+    }
 
 
 @router.post("/sections")
