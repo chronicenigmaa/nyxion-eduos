@@ -15,6 +15,7 @@ interface Student {
   class_name: string;
   section: string;
   phone: string;
+  email: string;
 }
 
 type ApiError = { response?: { data?: { detail?: string } } };
@@ -27,6 +28,8 @@ type StudentForm = {
   class_name: string;
   section: string;
   phone: string;
+  email: string;
+  password: string;
 };
 
 type School = { id: string; name: string; code: string };
@@ -39,6 +42,8 @@ const emptyForm: StudentForm = {
   class_name: "",
   section: "",
   phone: "",
+  email: "",
+  password: "",
 };
 
 export default function StudentsPage() {
@@ -96,13 +101,15 @@ export default function StudentsPage() {
           class_name: form.class_name,
           section: form.section,
           phone: form.phone,
+          email: form.email || undefined,
+          password: form.password || undefined,
         };
         await api.put(`/api/v1/students/${editingStudentId}`, updatePayload);
         toast.success("Student updated");
       } else {
         const payload = user?.role === "super_admin" ? form : { ...form, school_id: undefined };
         await api.post("/api/v1/students/", payload);
-        toast.success("Student added");
+        toast.success("Student added and LearnSpace login saved");
       }
       resetForm();
       await load();
@@ -121,6 +128,8 @@ export default function StudentsPage() {
       class_name: student.class_name || "",
       section: student.section || "",
       phone: student.phone || "",
+      email: student.email || "",
+      password: "",
     });
     setEditingStudentId(student.id);
     setShowForm(true);
@@ -154,6 +163,29 @@ export default function StudentsPage() {
       s.full_name?.toLowerCase().includes(search.toLowerCase()) ||
       s.roll_number?.toLowerCase().includes(search.toLowerCase())
   );
+
+  const studentFields: Array<{
+    key: keyof StudentForm;
+    label: string;
+    type?: string;
+    required?: boolean;
+    placeholder?: string;
+  }> = [
+    { key: "full_name", label: "Full Name", required: true },
+    { key: "father_name", label: "Father Name" },
+    { key: "roll_number", label: "Roll Number" },
+    { key: "class_name", label: "Class" },
+    { key: "section", label: "Section" },
+    { key: "phone", label: "Phone" },
+    { key: "email", label: "Email", type: "email", required: !editingStudentId, placeholder: "student@example.com" },
+    {
+      key: "password",
+      label: editingStudentId ? "New Password" : "Password",
+      type: "password",
+      required: !editingStudentId,
+      placeholder: editingStudentId ? "Leave blank to keep current password" : "Enter password",
+    },
+  ];
 
   return (
     <div className="p-8">
@@ -209,18 +241,22 @@ export default function StudentsPage() {
                 </select>
               </div>
             )}
-            {Object.keys(form).map((key) => (
-              key === "school_id" ? null :
+            {studentFields.map(({ key, label, type, required, placeholder }) => (
               <div key={key}>
-                <label className="block text-xs text-slate-500 mb-1 capitalize">{key.replace("_", " ")}</label>
+                <label className="block text-xs text-slate-500 mb-1">{label}</label>
                 <input
                   value={form[key as keyof StudentForm]}
                   onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-                  required={key === "full_name"}
+                  type={type || "text"}
+                  required={required}
+                  placeholder={placeholder}
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             ))}
+            <p className="col-span-full text-xs text-slate-400 -mt-1">
+              Email and password are saved for the student so LearnSpace can use the same login.
+            </p>
             <div className="col-span-full flex gap-3 pt-2">
               <button type="submit" className="px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium">Save</button>
               <button type="button" onClick={resetForm} className="px-6 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50">Cancel</button>
