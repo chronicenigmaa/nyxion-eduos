@@ -13,7 +13,7 @@
 
 import { useState, useEffect } from "react";
 import api from "@/lib/api";
-import { Plus, Trash2, UserPlus, X, Eye, EyeOff, School } from "lucide-react";
+import { Plus, Trash2, UserPlus, X, Eye, EyeOff, School, Pencil, KeyRound } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface SchoolData {
@@ -52,6 +52,11 @@ export default function SchoolsPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [adminLoading, setAdminLoading] = useState(false);
   const [existingAdmins, setExistingAdmins] = useState<AdminUser[]>([]);
+
+  // Edit admin
+  const [editingAdmin, setEditingAdmin] = useState<AdminUser | null>(null);
+  const [editAdminForm, setEditAdminForm] = useState({ full_name: "", email: "", new_password: "" });
+  const [editAdminLoading, setEditAdminLoading] = useState(false);
 
   // Delete school confirm
   const [deleteTarget, setDeleteTarget] = useState<SchoolData | null>(null);
@@ -116,6 +121,49 @@ export default function SchoolsPage() {
       toast.error(err?.response?.data?.detail || "Failed to create admin");
     } finally {
       setAdminLoading(false);
+    }
+  }
+
+  function openEditAdmin(a: AdminUser) {
+    setEditingAdmin(a);
+    setEditAdminForm({ full_name: a.full_name, email: a.email, new_password: "" });
+  }
+
+  async function handleSaveAdmin(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingAdmin) return;
+    setEditAdminLoading(true);
+    try {
+      const payload: Record<string, string> = {
+        full_name: editAdminForm.full_name,
+        email: editAdminForm.email,
+      };
+      if (editAdminForm.new_password) payload.new_password = editAdminForm.new_password;
+      await api.patch(`/api/v1/users/${editingAdmin.id}`, payload);
+      toast.success("Admin updated");
+      setEditingAdmin(null);
+      if (adminModalSchool) {
+        const res = await api.get(`/api/v1/schools/${adminModalSchool.id}/admins`);
+        setExistingAdmins(res.data);
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.detail || "Failed to update admin");
+    } finally {
+      setEditAdminLoading(false);
+    }
+  }
+
+  async function handleRemoveAdmin(adminId: string) {
+    if (!confirm("Deactivate this admin account?")) return;
+    try {
+      await api.delete(`/api/v1/users/${adminId}`);
+      toast.success("Admin deactivated");
+      if (adminModalSchool) {
+        const res = await api.get(`/api/v1/schools/${adminModalSchool.id}/admins`);
+        setExistingAdmins(res.data);
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.detail || "Failed to deactivate admin");
     }
   }
 
@@ -353,14 +401,74 @@ export default function SchoolsPage() {
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Existing admins</p>
                 <div className="space-y-2 mb-4">
                   {existingAdmins.map(a => (
-                    <div key={a.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-                      <div>
-                        <p className="text-sm font-medium text-gray-800">{a.full_name}</p>
-                        <p className="text-xs text-gray-400">{a.email}</p>
-                      </div>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${a.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                        {a.is_active ? "Active" : "Inactive"}
-                      </span>
+                    <div key={a.id}>
+                      {editingAdmin?.id === a.id ? (
+                        <form onSubmit={handleSaveAdmin} className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+                          <input
+                            value={editAdminForm.full_name}
+                            onChange={e => setEditAdminForm(f => ({ ...f, full_name: e.target.value }))}
+                            placeholder="Full name"
+                            required
+                            className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <input
+                            type="email"
+                            value={editAdminForm.email}
+                            onChange={e => setEditAdminForm(f => ({ ...f, email: e.target.value }))}
+                            placeholder="Email"
+                            required
+                            className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <div className="flex gap-2 items-center">
+                            <input
+                              type="text"
+                              value={editAdminForm.new_password}
+                              onChange={e => setEditAdminForm(f => ({ ...f, new_password: e.target.value }))}
+                              placeholder="New password (optional)"
+                              className="flex-1 border border-gray-200 rounded-md px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const pwd = Math.random().toString(36).slice(2, 8) + Math.random().toString(36).slice(2, 5).toUpperCase();
+                                setEditAdminForm(f => ({ ...f, new_password: pwd }));
+                              }}
+                              className="text-xs text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap flex items-center gap-1"
+                            >
+                              <KeyRound size={11} /> Generate
+                            </button>
+                          </div>
+                          {editAdminForm.new_password && (
+                            <p className="text-xs text-amber-600">User will be prompted to change this on next login.</p>
+                          )}
+                          <div className="flex gap-2 pt-1">
+                            <button type="submit" disabled={editAdminLoading} className="flex-1 bg-blue-600 text-white rounded-md py-1.5 text-xs font-medium hover:bg-blue-700 disabled:opacity-50">
+                              {editAdminLoading ? "Saving..." : "Save"}
+                            </button>
+                            <button type="button" onClick={() => setEditingAdmin(null)} className="flex-1 border border-gray-200 rounded-md py-1.5 text-xs text-gray-600 hover:bg-gray-50">
+                              Cancel
+                            </button>
+                          </div>
+                        </form>
+                      ) : (
+                        <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                          <div>
+                            <p className="text-sm font-medium text-gray-800">{a.full_name}</p>
+                            <p className="text-xs text-gray-400">{a.email}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${a.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                              {a.is_active ? "Active" : "Inactive"}
+                            </span>
+                            <button onClick={() => openEditAdmin(a)} className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-0.5">
+                              <Pencil size={11} /> Edit
+                            </button>
+                            <button onClick={() => handleRemoveAdmin(a.id)} className="text-xs text-red-500 hover:text-red-600 font-medium flex items-center gap-0.5">
+                              <Trash2 size={11} /> Remove
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
