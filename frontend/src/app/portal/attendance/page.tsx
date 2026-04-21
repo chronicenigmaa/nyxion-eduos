@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
-import { CheckCircle, XCircle, Clock, Save } from "lucide-react";
+import { Save } from "lucide-react";
 
 type StudentRow = {
   id: string;
@@ -12,18 +12,19 @@ type StudentRow = {
   status: string;
 };
 
-const STATUS_CYCLE = ["present", "absent", "late"];
+const STATUSES = ["present", "absent", "late", "leave"] as const;
+type Status = typeof STATUSES[number];
 
-function statusLabel(s: string) {
-  if (s === "present") return { label: "Present", cls: "bg-green-100 text-green-700", icon: CheckCircle };
-  if (s === "absent")  return { label: "Absent",  cls: "bg-red-100 text-red-700",   icon: XCircle };
-  if (s === "late")    return { label: "Late",    cls: "bg-yellow-100 text-yellow-700", icon: Clock };
-  return { label: "—", cls: "bg-slate-100 text-slate-400", icon: Clock };
-}
+const STATUS_STYLE: Record<Status, string> = {
+  present: "bg-green-100 text-green-700 border-green-300",
+  absent:  "bg-red-100 text-red-700 border-red-300",
+  late:    "bg-yellow-100 text-yellow-700 border-yellow-300",
+  leave:   "bg-blue-100 text-blue-700 border-blue-300",
+};
 
 export default function PortalAttendancePage() {
   const [students, setStudents] = useState<StudentRow[]>([]);
-  const [statuses, setStatuses] = useState<Record<string, string>>({});
+  const [statuses, setStatuses] = useState<Record<string, Status | "">>({});
   const [classes, setClasses] = useState<string[]>([]);
   const [filter, setFilter] = useState("all");
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
@@ -38,8 +39,10 @@ export default function PortalAttendancePage() {
       .then(r => {
         setStudents(r.data.students);
         setClasses(r.data.classes);
-        const initial: Record<string, string> = {};
-        for (const s of r.data.students) initial[s.id] = s.status;
+        const initial: Record<string, Status | ""> = {};
+        for (const s of r.data.students) {
+          initial[s.id] = STATUSES.includes(s.status as Status) ? (s.status as Status) : "";
+        }
         setStatuses(initial);
       })
       .catch(() => {})
@@ -48,20 +51,22 @@ export default function PortalAttendancePage() {
 
   useEffect(() => { load(date); }, [date]);
 
-  const toggle = (id: string) => {
-    setStatuses(prev => {
-      const cur = prev[id];
-      const idx = STATUS_CYCLE.indexOf(cur);
-      const next = STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
-      return { ...prev, [id]: next };
-    });
+  const mark = (id: string, status: Status) => {
+    setStatuses(prev => ({ ...prev, [id]: prev[id] === status ? "" : status }));
+    setSaved(false);
+  };
+
+  const markAll = (status: Status) => {
+    const next: Record<string, Status | ""> = {};
+    for (const s of filtered) next[s.id] = status;
+    setStatuses(prev => ({ ...prev, ...next }));
     setSaved(false);
   };
 
   const save = async () => {
     setSaving(true);
     const records = students
-      .filter(s => statuses[s.id] && statuses[s.id] !== "not_marked")
+      .filter(s => statuses[s.id])
       .map(s => ({ student_id: s.id, status: statuses[s.id] }));
     try {
       await api.post("/api/v1/attendance/mark", { date, records });
@@ -71,13 +76,14 @@ export default function PortalAttendancePage() {
   };
 
   const filtered = filter === "all" ? students : students.filter(s => `${s.class_name}${s.section || ""}` === filter);
+  const markedCount = filtered.filter(s => statuses[s.id]).length;
 
   return (
     <div className="p-8">
-      <div className="mb-6 flex items-start justify-between">
+      <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Attendance</h1>
-          <p className="text-slate-500 mt-1">Mark attendance for your students</p>
+          <p className="text-slate-500 mt-1">{markedCount}/{filtered.length} marked</p>
         </div>
         <div className="flex items-center gap-3">
           <input
@@ -88,7 +94,7 @@ export default function PortalAttendancePage() {
           />
           <button
             onClick={save}
-            disabled={saving || students.length === 0}
+            disabled={saving || markedCount === 0}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-all"
           >
             <Save size={15} />
@@ -99,14 +105,26 @@ export default function PortalAttendancePage() {
 
       {classes.length > 1 && (
         <div className="flex gap-2 mb-5 flex-wrap">
-          <button
-            onClick={() => setFilter("all")}
-            className={"px-3 py-1.5 rounded-lg text-xs font-medium transition-all " + (filter === "all" ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}
-          >All</button>
+          <button onClick={() => setFilter("all")}
+            className={"px-3 py-1.5 rounded-lg text-xs font-medium transition-all " + (filter === "all" ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}>
+            All
+          </button>
           {classes.map(cls => (
             <button key={cls} onClick={() => setFilter(cls)}
               className={"px-3 py-1.5 rounded-lg text-xs font-medium transition-all " + (filter === cls ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}>
               Class {cls}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!loading && filtered.length > 0 && (
+        <div className="flex gap-2 mb-4">
+          <span className="text-xs text-slate-500 self-center mr-1">Mark all:</span>
+          {STATUSES.map(s => (
+            <button key={s} onClick={() => markAll(s)}
+              className="px-3 py-1 rounded-lg text-xs font-medium border capitalize transition-all hover:opacity-80 bg-slate-50 text-slate-600 border-slate-200">
+              {s}
             </button>
           ))}
         </div>
@@ -121,18 +139,18 @@ export default function PortalAttendancePage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50">
-                {["Roll No.", "Name", "Class", "Status"].map(h => (
-                  <th key={h} className="text-left text-xs text-slate-500 font-medium px-4 py-3">{h}</th>
-                ))}
+                <th className="text-left text-xs text-slate-500 font-medium px-4 py-3">Roll No.</th>
+                <th className="text-left text-xs text-slate-500 font-medium px-4 py-3">Name</th>
+                <th className="text-left text-xs text-slate-500 font-medium px-4 py-3">Class</th>
+                <th className="text-left text-xs text-slate-500 font-medium px-4 py-3">Status</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map(s => {
-                const st = statuses[s.id] || "not_marked";
-                const { label, cls, icon: Icon } = statusLabel(st);
+                const cur = statuses[s.id] || "";
                 return (
                   <tr key={s.id} className="border-b border-slate-50 hover:bg-slate-50">
-                    <td className="px-4 py-3 text-slate-500 text-sm">{s.roll_number || "—"}</td>
+                    <td className="px-4 py-3 text-slate-500 text-sm font-mono">{s.roll_number || "—"}</td>
                     <td className="px-4 py-3 text-slate-900 text-sm font-medium">{s.full_name}</td>
                     <td className="px-4 py-3">
                       <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">
@@ -140,11 +158,15 @@ export default function PortalAttendancePage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <button onClick={() => toggle(s.id)}
-                        className={"flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all " + cls}>
-                        <Icon size={13} />
-                        {label}
-                      </button>
+                      <div className="flex gap-1.5">
+                        {STATUSES.map(st => (
+                          <button key={st} onClick={() => mark(s.id, st)}
+                            className={"px-2.5 py-1 rounded-lg text-xs font-medium border capitalize transition-all " +
+                              (cur === st ? STATUS_STYLE[st] + " border-current" : "bg-white text-slate-400 border-slate-200 hover:border-slate-300")}>
+                            {st}
+                          </button>
+                        ))}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -153,7 +175,6 @@ export default function PortalAttendancePage() {
           </table>
         )}
       </div>
-      <p className="text-xs text-slate-400 mt-3">Click a status badge to cycle: Present → Absent → Late</p>
     </div>
   );
 }
