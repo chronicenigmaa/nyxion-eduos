@@ -51,8 +51,8 @@ export default function PortalAttendancePage() {
 
   useEffect(() => { load(date); }, [date]);
 
-  const mark = (id: string, status: Status) => {
-    setStatuses(prev => ({ ...prev, [id]: prev[id] === status ? "" : status }));
+  const mark = (id: string, status: Status | "") => {
+    setStatuses(prev => ({ ...prev, [id]: status }));
     setSaved(false);
   };
 
@@ -158,15 +158,17 @@ export default function PortalAttendancePage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex gap-1.5">
+                      <select
+                        value={cur}
+                        onChange={e => mark(s.id, e.target.value as Status)}
+                        className={"px-3 py-1.5 rounded-lg text-xs font-medium border focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer " +
+                          (cur ? STATUS_STYLE[cur as Status] : "bg-white text-slate-400 border-slate-200")}
+                      >
+                        <option value="">— Not marked</option>
                         {STATUSES.map(st => (
-                          <button key={st} onClick={() => mark(s.id, st)}
-                            className={"px-2.5 py-1 rounded-lg text-xs font-medium border capitalize transition-all " +
-                              (cur === st ? STATUS_STYLE[st] + " border-current" : "bg-white text-slate-400 border-slate-200 hover:border-slate-300")}>
-                            {st}
-                          </button>
+                          <option key={st} value={st} className="bg-white text-slate-700 capitalize">{st.charAt(0).toUpperCase() + st.slice(1)}</option>
                         ))}
-                      </div>
+                      </select>
                     </td>
                   </tr>
                 );
