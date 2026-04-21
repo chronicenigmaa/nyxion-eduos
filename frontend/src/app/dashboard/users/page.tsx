@@ -312,14 +312,29 @@ function UsersPageInner() {
                 </div>
               )}
               <div>
-                <label className="block text-xs text-slate-500 mb-1 flex items-center gap-1"><KeyRound size={11} /> New Password (leave blank to keep current)</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs text-slate-500 flex items-center gap-1"><KeyRound size={11} /> New Password <span className="text-slate-400">(leave blank to keep current)</span></label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const pwd = Math.random().toString(36).slice(2, 8) + Math.random().toString(36).slice(2, 6).toUpperCase();
+                      setEditState(s => s && ({ ...s, new_password: pwd }));
+                    }}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    Generate
+                  </button>
+                </div>
                 <input
                   type="text"
                   value={editState.new_password}
                   onChange={(e) => setEditState(s => s && ({ ...s, new_password: e.target.value }))}
                   placeholder="min 6 characters"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 text-slate-900 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+                {editState.new_password && (
+                  <p className="text-xs text-amber-600 mt-1">User will be required to change this on next login.</p>
+                )}
               </div>
             </div>
             <div className="flex gap-3 mt-6">
@@ -381,11 +396,17 @@ function UsersPageInner() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <button onClick={() => openEdit(entry)} className="text-slate-300 hover:text-blue-500 transition-all">
-                        <Pencil size={14} />
+                      <button
+                        onClick={() => openEdit(entry)}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium transition-all"
+                      >
+                        <Pencil size={12} /> Edit
                       </button>
-                      <button onClick={() => handleDeactivate(entry.id)} className="text-slate-300 hover:text-red-500 transition-all">
-                        <Trash2 size={14} />
+                      <button
+                        onClick={() => handleDeactivate(entry.id)}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs font-medium transition-all"
+                      >
+                        <Trash2 size={12} /> Remove
                       </button>
                     </div>
                   </td>
