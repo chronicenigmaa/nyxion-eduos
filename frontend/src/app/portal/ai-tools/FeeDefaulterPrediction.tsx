@@ -17,8 +17,20 @@ export default function FeeDefaulterPrediction({ onBack }: { onBack: () => void 
   const loadAndAnalyse = async () => {
     setLoading(true); setError(""); setResult(""); setStudents([]);
     try {
-      const r = await api.get("/api/v1/portal/my-students-fees");
-      const data: StudentFee[] = r.data.students;
+      let data: StudentFee[] = [];
+      try {
+        const r = await api.get("/api/v1/fees/defaulter-input");
+        data = r.data.students as StudentFee[];
+      } catch (primaryError: unknown) {
+        const status = (primaryError as { response?: { status?: number } })?.response?.status;
+        // Backward compatibility for older deployments that only expose portal route.
+        if (status === 404) {
+          const fallback = await api.get("/api/v1/portal/my-students-fees");
+          data = fallback.data.students as StudentFee[];
+        } else {
+          throw primaryError;
+        }
+      }
       setStudents(data);
       setLoaded(true);
 

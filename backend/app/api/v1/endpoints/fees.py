@@ -3,6 +3,9 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.fee import Fee, FeeStatus
 from app.models.student import Student
+from app.models.teacher import Teacher
+from app.models.subject import Subject
+from app.models.class_section import ClassSection
 from app.models.user import User
 from app.api.v1.endpoints.auth import get_current_user
 from pydantic import BaseModel
@@ -85,3 +88,87 @@ def fee_summary(db: Session = Depends(get_db), current_user: User = Depends(get_
         "total_amount": sum(f.amount for f in fees),
         "collected": sum(f.paid_amount for f in fees)
     }
+
+
+@router.get("/defaulter-input")
+def defaulter_input_data(
+    school_id: Optional[uuid.UUID] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role.value == "super_admin":
+        target_school_id = school_id or current_user.school_id
+    else:
+        target_school_id = current_user.school_id
+
+    if not target_school_id:
+        raise HTTPException(status_code=400, detail="No school associated")
+
+    students_query = db.query(Student).filter(
+        Student.school_id == target_school_id,
+        Student.is_active == True,
+    )
+
+    # Teachers should only analyze their assigned classes/sections.
+    if current_user.role.value == "teacher":
+        teacher = db.query(Teacher).filter(
+            Teacher.school_id == target_school_id,
+            Teacher.email == current_user.email,
+            Teacher.is_active == True,
+        ).first()
+        if not teacher:
+            return {"students": []}
+
+        pairs: set[tuple[str, str]] = set()
+        class_sections = db.query(ClassSection).filter(
+            ClassSection.school_id == target_school_id,
+            ClassSection.class_teacher_id == teacher.id,
+            ClassSection.is_active == True,
+        ).all()
+        taught = db.query(Subject).filter(
+            Subject.school_id == target_school_id,
+            Subject.teacher_id == teacher.id,
+            Subject.is_active == True,
+        ).all()
+        for cs in class_sections:
+            pairs.add((cs.class_name, cs.section))
+        for subject in taught:
+            if subject.class_name:
+                pairs.add((subject.class_name, subject.section or ""))
+
+        all_students = students_query.all()
+        scoped_students = []
+        for student in all_students:
+            for class_name, section in pairs:
+                if student.class_name == class_name and (not section or student.section == section):
+                    scoped_students.append(student)
+                    break
+    else:
+        # School admin and super admin get all school students.
+        scoped_students = students_query.all()
+
+    result = []
+    for student in scoped_students:
+        fees = db.query(Fee).filter(Fee.student_id == student.id).order_by(Fee.year, Fee.month).all()
+        result.append({
+            "id": str(student.id),
+            "full_name": student.full_name,
+            "roll_number": student.roll_number,
+            "class_name": student.class_name,
+            "section": student.section,
+            "fees": [
+                {
+                    "month": fee.month,
+                    "year": fee.year,
+                    "amount": fee.amount,
+                    "paid_amount": fee.paid_amount,
+                    "status": fee.status.value if hasattr(fee.status, "value") else fee.status,
+                    "due_date": str(fee.due_date) if fee.due_date else None,
+                }
+                for fee in fees
+            ],
+            "total_due": sum(fee.amount - (fee.paid_amount or 0) for fee in fees if fee.status != FeeStatus.PAID),
+            "months_overdue": sum(1 for fee in fees if fee.status == FeeStatus.OVERDUE),
+        })
+
+    return {"students": result}
