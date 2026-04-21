@@ -27,7 +27,7 @@ DEFAULT_FEATURES = {
 PACKAGE_FEATURES = {
     "starter": [
         "exam_generator", "lesson_planner", "notice_writer",
-        "attendance_analysis", "export_pdf", "student_portal"
+        "attendance_analysis", "fee_defaulter_prediction", "export_pdf", "student_portal"
     ],
     "growth": [
         "exam_generator", "lesson_planner", "notice_writer",

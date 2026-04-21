@@ -1,21 +1,23 @@
 "use client";
 import { useState } from "react";
 import api from "@/lib/api";
-import { Sparkles, FileQuestion, BookOpen, ClipboardList, GraduationCap, BarChart2 } from "lucide-react";
+import { Sparkles, FileQuestion, BookOpen, ClipboardList, GraduationCap, BarChart2, DollarSign } from "lucide-react";
 import ExamGenerator from "./ExamGenerator";
 import ReportCardGenerator from "./ReportCardGenerator";
 import LessonPlanner from "./LessonPlanner";
 import HomeworkCreator from "./HomeworkCreator";
 import AttendanceAnalysis from "./AttendanceAnalysis";
+import FeeDefaulterPrediction from "./FeeDefaulterPrediction";
 
-type Tool = "exam" | "report_card" | "lesson_plan" | "homework" | "attendance";
+type Tool = "exam" | "report_card" | "lesson_plan" | "homework" | "attendance" | "fee_defaulter";
 
 const TOOLS = [
-  { id: "exam" as Tool,        label: "Exam Generator",       icon: FileQuestion,   desc: "Generate MCQ, short answer, or mixed exam papers" },
-  { id: "report_card" as Tool, label: "Report Card Generator",icon: GraduationCap,  desc: "AI-generated remarks with PDF download" },
-  { id: "attendance" as Tool,  label: "Attendance Analysis",  icon: BarChart2,      desc: "AI insights on attendance patterns and at-risk students" },
-  { id: "lesson_plan" as Tool, label: "Lesson Planner",       icon: BookOpen,       desc: "Create structured lesson plans" },
-  { id: "homework" as Tool,    label: "Homework Creator",     icon: ClipboardList,  desc: "Generate homework worksheets" },
+  { id: "exam" as Tool,          label: "Exam Generator",          icon: FileQuestion,  desc: "Generate MCQ, short answer, or mixed exam papers" },
+  { id: "report_card" as Tool,   label: "Report Card Generator",   icon: GraduationCap, desc: "AI-generated remarks with PDF download" },
+  { id: "attendance" as Tool,    label: "Attendance Analysis",     icon: BarChart2,     desc: "AI insights on attendance patterns and at-risk students" },
+  { id: "fee_defaulter" as Tool, label: "Fee Defaulter Prediction",icon: DollarSign,    desc: "Predict which students are likely to default next month" },
+  { id: "lesson_plan" as Tool,   label: "Lesson Planner",          icon: BookOpen,      desc: "Create structured lesson plans" },
+  { id: "homework" as Tool,      label: "Homework Creator",        icon: ClipboardList, desc: "Generate homework worksheets" },
 ];
 
 export default function PortalAIToolsPage() {
@@ -23,7 +25,8 @@ export default function PortalAIToolsPage() {
 
   if (activeTool === "exam")        return <ExamGenerator onBack={() => setActiveTool(null)} />;
   if (activeTool === "report_card") return <ReportCardGenerator onBack={() => setActiveTool(null)} />;
-  if (activeTool === "attendance")  return <AttendanceAnalysis onBack={() => setActiveTool(null)} />;
+  if (activeTool === "attendance")    return <AttendanceAnalysis onBack={() => setActiveTool(null)} />;
+  if (activeTool === "fee_defaulter") return <FeeDefaulterPrediction onBack={() => setActiveTool(null)} />;
   if (activeTool === "lesson_plan") return <LessonPlanner onBack={() => setActiveTool(null)} />;
   if (activeTool === "homework")    return <HomeworkCreator onBack={() => setActiveTool(null)} />;
 

@@ -402,6 +402,79 @@ def my_students(db: Session = Depends(get_db), current_user: User = Depends(get_
     return {"students": result, "classes": classes}
 
 
+@router.get("/my-students-fees")
+def my_students_fees(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    from app.models.subject import Subject
+    from app.models.class_section import ClassSection
+
+    school_id = current_user.school_id
+    if not school_id:
+        raise HTTPException(status_code=400, detail="No school associated")
+
+    teacher = db.query(Teacher).filter(
+        Teacher.school_id == school_id,
+        Teacher.email == current_user.email,
+        Teacher.is_active == True,
+    ).first()
+    if not teacher:
+        return {"students": []}
+
+    class_sections = db.query(ClassSection).filter(
+        ClassSection.school_id == school_id,
+        ClassSection.class_teacher_id == teacher.id,
+        ClassSection.is_active == True,
+    ).all()
+    taught = db.query(Subject).filter(
+        Subject.school_id == school_id,
+        Subject.teacher_id == teacher.id,
+        Subject.is_active == True,
+    ).all()
+    pairs: set[tuple[str, str]] = set()
+    for cs in class_sections:
+        pairs.add((cs.class_name, cs.section))
+    for s in taught:
+        if s.class_name:
+            pairs.add((s.class_name, s.section or ""))
+
+    all_students = db.query(Student).filter(
+        Student.school_id == school_id,
+        Student.is_active == True,
+    ).all()
+
+    matched = []
+    for st in all_students:
+        for cn, sec in pairs:
+            if st.class_name == cn and (not sec or st.section == sec):
+                matched.append(st)
+                break
+
+    result = []
+    for st in matched:
+        fees = db.query(Fee).filter(Fee.student_id == st.id).order_by(Fee.year, Fee.month).all()
+        result.append({
+            "id": str(st.id),
+            "full_name": st.full_name,
+            "roll_number": st.roll_number,
+            "class_name": st.class_name,
+            "section": st.section,
+            "fees": [
+                {
+                    "month": f.month,
+                    "year": f.year,
+                    "amount": f.amount,
+                    "paid_amount": f.paid_amount,
+                    "status": f.status.value if hasattr(f.status, "value") else f.status,
+                    "due_date": str(f.due_date) if f.due_date else None,
+                }
+                for f in fees
+            ],
+            "total_due": sum(f.amount - (f.paid_amount or 0) for f in fees if f.status != FeeStatus.PAID),
+            "months_overdue": sum(1 for f in fees if f.status == FeeStatus.OVERDUE),
+        })
+
+    return {"students": result}
+
+
 @router.get("/class-results")
 def class_results(class_name: str, section: str = "", term: str = "", db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     from app.models.subject import Subject
