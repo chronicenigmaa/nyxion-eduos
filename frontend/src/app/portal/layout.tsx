@@ -35,7 +35,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       <aside className="w-60 bg-white border-r border-slate-200 flex flex-col">
         <div className="p-5 border-b border-slate-100">
           <Image src="/logo-light.svg" alt="Nyxion" width={110} height={34} priority/>
-          <p className="text-slate-400 text-xs mt-2">Student Portal</p>
+          <p className="text-slate-400 text-xs mt-2">{user.role === "teacher" ? "Teacher Portal" : "Student Portal"}</p>
         </div>
         <div className="px-4 py-3 border-b border-slate-100">
           <p className="text-slate-900 text-sm font-medium">{user.full_name}</p>
