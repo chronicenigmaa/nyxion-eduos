@@ -24,6 +24,7 @@ interface SchoolData {
   phone?: string;
   email?: string;
   package?: string;
+  features?: Record<string, boolean>;
 }
 
 interface AdminUser {
@@ -36,9 +37,32 @@ interface AdminUser {
 
 const PACKAGES = ["starter", "growth", "elite"];
 
+const FEATURE_LABELS: Record<string, string> = {
+  exam_generator: "Exam Generator",
+  lesson_planner: "Lesson Planner",
+  notice_writer: "Notice Writer",
+  attendance_analysis: "Attendance Analysis",
+  fee_defaulter_prediction: "Fee Defaulter Prediction",
+  report_card_generator: "Report Card Generator",
+  homework_generator: "Homework Generator",
+  exam_analyser: "Exam Analyser",
+  parent_messages: "Parent Messages",
+  ai_chatbot: "AI Chatbot",
+  timetable_generator: "Timetable Generator",
+  risk_scoring: "Risk Scoring",
+  behaviour_tracker: "Behaviour Tracker",
+  plagiarism_detector: "Plagiarism Detector",
+  student_portal: "Student Portal",
+  export_pdf: "Export PDF",
+};
+
+const FEATURE_KEYS = Object.keys(FEATURE_LABELS);
+
 export default function SchoolsPage() {
   const [schools, setSchools] = useState<SchoolData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [packageLoading, setPackageLoading] = useState(false);
+  const [featureLoading, setFeatureLoading] = useState<string | null>(null);
 
   // Add school form
   const [showAddSchool, setShowAddSchool] = useState(false);
@@ -185,6 +209,48 @@ export default function SchoolsPage() {
       toast.error(err?.response?.data?.detail || "Failed to delete school");
     } finally {
       setDeleteLoading(false);
+    }
+  }
+
+  async function handleUpdatePackage(newPackage: string) {
+    if (!selectedSchool || selectedSchool.package === newPackage) return;
+    setPackageLoading(true);
+    try {
+      const res = await api.patch(`/api/v1/schools/${selectedSchool.id}/package`, { package: newPackage });
+      const updatedSchool = {
+        ...selectedSchool,
+        package: newPackage,
+        features: res.data.features,
+      };
+      setSelectedSchool(updatedSchool);
+      setSchools((prev) => prev.map((school) => school.id === updatedSchool.id ? updatedSchool : school));
+      toast.success(`Package updated to ${newPackage}`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.detail || "Failed to update package");
+    } finally {
+      setPackageLoading(false);
+    }
+  }
+
+  async function handleToggleFeature(feature: string) {
+    if (!selectedSchool || !selectedSchool.features) return;
+    setFeatureLoading(feature);
+    try {
+      const nextValue = !selectedSchool.features[feature];
+      const res = await api.patch(`/api/v1/schools/${selectedSchool.id}/features`, {
+        features: { [feature]: nextValue },
+      });
+      const updatedSchool = {
+        ...selectedSchool,
+        features: res.data.features,
+      };
+      setSelectedSchool(updatedSchool);
+      setSchools((prev) => prev.map((school) => school.id === updatedSchool.id ? updatedSchool : school));
+      toast.success(`${FEATURE_LABELS[feature] || feature} ${nextValue ? "enabled" : "disabled"}`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.detail || "Failed to update feature");
+    } finally {
+      setFeatureLoading(null);
     }
   }
 
@@ -353,21 +419,55 @@ export default function SchoolsPage() {
                 <X size={18} />
               </button>
             </div>
-            {/* Package selector and Feature Toggles as before */}
             <p className="text-sm text-gray-500">Select a package and manage feature toggles for this school.</p>
             <div className="mt-4 flex gap-2">
               {PACKAGES.map(p => (
                 <button
                   key={p}
+                  type="button"
+                  disabled={packageLoading}
+                  onClick={() => handleUpdatePackage(p)}
                   className={`px-4 py-1.5 rounded-lg text-sm font-medium capitalize border transition-colors ${
                     selectedSchool.package === p
                       ? "bg-blue-600 text-white border-blue-600"
                       : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                  }`}
+                  } ${packageLoading ? "opacity-70 cursor-not-allowed" : ""}`}
                 >
                   {p}
                 </button>
               ))}
+            </div>
+            <div className="mt-6">
+              <h3 className="text-sm font-semibold text-gray-900">Feature Toggles</h3>
+              <p className="text-sm text-gray-500 mt-1">Enable or disable features for this school.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                {FEATURE_KEYS.map((feature) => {
+                  const enabled = selectedSchool.features?.[feature] ?? false;
+                  return (
+                    <button
+                      key={feature}
+                      type="button"
+                      onClick={() => handleToggleFeature(feature)}
+                      disabled={featureLoading !== null && featureLoading !== feature}
+                      className={`w-full text-left rounded-2xl border px-4 py-3 transition-colors ${
+                        enabled
+                          ? "border-green-200 bg-green-50 hover:bg-green-100"
+                          : "border-gray-200 bg-white hover:bg-gray-50"
+                      } ${featureLoading === feature ? "opacity-70 cursor-wait" : ""}`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">{FEATURE_LABELS[feature]}</p>
+                          <p className="text-xs text-gray-500 mt-1">{enabled ? "Enabled" : "Disabled"}</p>
+                        </div>
+                        <div className={`h-7 w-14 rounded-full p-1 transition ${enabled ? "bg-green-500" : "bg-slate-300"}`}>
+                          <div className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${enabled ? "translate-x-7" : "translate-x-0"}`} />
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}

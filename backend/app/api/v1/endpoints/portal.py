@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.user import User, UserRole
@@ -24,6 +25,17 @@ router = APIRouter()
 class SubmissionCreate(BaseModel):
     assignment_id: uuid.UUID
     content: str
+
+
+def _student_for_current_user(db: Session, school_id, current_user: User) -> Student | None:
+    if not school_id or not current_user.email:
+        return None
+
+    return db.query(Student).filter(
+        Student.school_id == school_id,
+        Student.is_active == True,
+        func.lower(Student.email) == current_user.email.lower(),
+    ).first()
 
 @router.get("/dashboard")
 def portal_dashboard(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -250,26 +262,24 @@ def portal_dashboard(db: Session = Depends(get_db), current_user: User = Depends
         }
 
     elif current_user.role.value == "student":
-        # Find student record linked to this user by email
-        student = db.query(Student).filter(
-            Student.school_id == school_id,
-            Student.email == current_user.email
-        ).first()
-
-        if not student:
-            # Try matching by name
-            student = db.query(Student).filter(
-                Student.school_id == school_id
-            ).first()
+        student = _student_for_current_user(db, school_id, current_user)
 
         if not student:
             return {"role": "student", "name": current_user.full_name, "stats": {}, "message": "Student record not linked yet"}
 
-        # Get student's assignments
-        assignments = db.query(Assignment).filter(
+        assignments_query = db.query(Assignment).filter(
             Assignment.school_id == school_id,
-            Assignment.class_name == student.class_name
-        ).order_by(Assignment.due_date).all()
+            Assignment.class_name == student.class_name,
+        )
+        if student.section:
+            assignments_query = assignments_query.filter(
+                or_(
+                    Assignment.section.is_(None),
+                    Assignment.section == "",
+                    Assignment.section == student.section,
+                )
+            )
+        assignments = assignments_query.order_by(Assignment.due_date).all()
 
         # Get submissions
         submissions = db.query(Submission).filter(
@@ -633,7 +643,7 @@ def portal_attendance(attendance_date: str = None, db: Session = Depends(get_db)
 @router.post("/submit-assignment")
 def submit_assignment(data: SubmissionCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     school_id = current_user.school_id
-    student = db.query(Student).filter(Student.school_id == school_id, Student.email == current_user.email).first()
+    student = _student_for_current_user(db, school_id, current_user)
     if not student:
         raise HTTPException(status_code=404, detail="Student record not found")
     existing = db.query(Submission).filter(
@@ -659,7 +669,7 @@ def submit_assignment(data: SubmissionCreate, db: Session = Depends(get_db), cur
 @router.get("/my-results")
 def my_results(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     school_id = current_user.school_id
-    student = db.query(Student).filter(Student.school_id == school_id, Student.email == current_user.email).first()
+    student = _student_for_current_user(db, school_id, current_user)
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
     results = db.query(Result).filter(Result.student_id == student.id).all()
@@ -668,7 +678,7 @@ def my_results(db: Session = Depends(get_db), current_user: User = Depends(get_c
 @router.get("/my-timetable")
 def my_timetable(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     school_id = current_user.school_id
-    student = db.query(Student).filter(Student.school_id == school_id, Student.email == current_user.email).first()
+    student = _student_for_current_user(db, school_id, current_user)
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
     entries = db.query(TimetableEntry).filter(
@@ -686,7 +696,7 @@ def my_timetable(db: Session = Depends(get_db), current_user: User = Depends(get
 @router.get("/coursebooks")
 def portal_coursebooks(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     school_id = current_user.school_id
-    student = db.query(Student).filter(Student.school_id == school_id, Student.email == current_user.email).first()
+    student = _student_for_current_user(db, school_id, current_user)
     class_name = student.class_name if student else None
     q = db.query(CourseBook).filter(CourseBook.school_id == school_id, CourseBook.is_active == True)
     if class_name:

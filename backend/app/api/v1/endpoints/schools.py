@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
-from typing import List, Optional
+from typing import Dict, List, Optional
 from app.core.database import get_db
 from app.core.security import get_password_hash
 from app.api.v1.endpoints.auth import get_current_user
@@ -35,6 +35,7 @@ class SchoolOut(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     package: Optional[str] = None
+    features: Dict[str, bool] = {}
     is_active: bool
 
     class Config:
@@ -61,7 +62,22 @@ def list_schools(
 ):
     if current_user.role.value != "super_admin":
         raise HTTPException(status_code=403, detail="Only super admins can view all schools")
-    return db.query(School).filter(School.is_active == True).all()
+
+    schools = db.query(School).filter(School.is_active == True).all()
+    return [
+        {
+            "id": school.id,
+            "name": school.name,
+            "code": school.code,
+            "address": school.address,
+            "phone": school.phone,
+            "email": school.email,
+            "package": school.package,
+            "is_active": school.is_active,
+            "features": get_school_features(school),
+        }
+        for school in schools
+    ]
 
 
 # ── POST /schools/ — create a school ─────────────────────────────────────────
