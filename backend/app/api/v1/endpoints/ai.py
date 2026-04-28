@@ -204,20 +204,6 @@ Provide: 1) Behaviour pattern analysis, 2) Root cause assessment, 3) Specific in
     response = await call_ai("You are a school counselor AI. Provide compassionate, practical behaviour intervention strategies.", prompt, 1500)
     return {"response": response}
 
-@router.post("/plagiarism-check")
-async def plagiarism_check(request: PlagiarismRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    school = db.query(School).filter(School.id == current_user.school_id).first() if current_user.school_id else None
-    if school and not check_feature(school, "plagiarism_detector"):
-        raise HTTPException(status_code=403, detail="Not available in your package")
-    word_count = len(request.text.split())
-    prompt = f"""Analyze this student submission for potential plagiarism and AI-generated content.
-Assignment: {request.assignment_title}
-Word count: {word_count}
-Text: {request.text[:2000]}
-
-Analyze: 1) Writing style consistency (does it sound like a student?), 2) Vocabulary sophistication (age-appropriate?), 3) Structural patterns suggesting copy-paste, 4) Signs of AI generation, 5) Overall plagiarism risk: LOW/MEDIUM/HIGH with reasoning, 6) Recommendation for teacher."""
-    response = await call_ai("You are a plagiarism detection expert for Pakistani schools. Be thorough but fair.", prompt, 1200)
-    return {"response": response, "word_count": word_count}
 
 @router.post("/chatbot")
 async def chatbot(request: ChatRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -231,15 +217,4 @@ Be helpful, concise, and specific. If asked about student data you don't have, s
     response = await call_ai(system, request.message, 1000)
     return {"response": response}
 
-@router.post("/homework-generator")
-async def homework_generator(db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
-    subject: str = "", class_name: str = "", topic: str = "", difficulty: str = "medium", num_questions: int = 5):
-    school = db.query(School).filter(School.id == current_user.school_id).first() if current_user.school_id else None
-    if school and not check_feature(school, "homework_generator"):
-        raise HTTPException(status_code=403, detail="Not available in your package")
-    prompt = f"""Generate {num_questions} homework questions for:
-Subject: {subject}, Class: {class_name}, Topic: {topic}, Difficulty: {difficulty}
-Mix question types: MCQ, short answer, and one application question.
-Format clearly with question numbers. Include an answer key at the end."""
-    response = await call_ai(SYSTEM_PROMPTS["exam"], prompt)
-    return {"response": response}
+

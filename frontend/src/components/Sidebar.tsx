@@ -4,10 +4,10 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Image from "next/image";
 import {
-  LayoutDashboard, Users, GraduationCap, BookOpen,
+  LayoutDashboard, Users, GraduationCap,
   ClipboardList, DollarSign, MessageSquare, Brain,
   Building2, LogOut, ChevronRight, FileText, TrendingUp,
-  BookMarked, Calendar, UserCog
+  BookMarked, UserCog
 } from "lucide-react";
 
 const navItems = [
@@ -17,9 +17,7 @@ const navItems = [
   { href: "/dashboard/attendance",    label: "Attendance",   icon: ClipboardList },
   { href: "/dashboard/assignments",   label: "Assignments",  icon: FileText },
   { href: "/dashboard/results",       label: "Results",      icon: TrendingUp },
-  { href: "/dashboard/coursebooks",   label: "Course Books", icon: BookOpen },
   { href: "/dashboard/academics",     label: "Academics",    icon: BookMarked },
-  { href: "/dashboard/timetable",     label: "Timetable",    icon: Calendar },
   { href: "/dashboard/users",         label: "Manage Users", icon: UserCog, adminOnly: true },
   { href: "/dashboard/finance",       label: "Finance",      icon: DollarSign },
   { href: "/dashboard/communication", label: "WhatsApp",     icon: MessageSquare },

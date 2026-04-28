@@ -26,6 +26,9 @@ class SchoolCreate(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     package: Optional[str] = "starter"
+    admin_email: Optional[EmailStr] = None
+    admin_password: Optional[str] = None
+    admin_role: Optional[str] = None
 
 class SchoolOut(BaseModel):
     id: uuid.UUID        # ← change from str to uuid.UUID
@@ -44,6 +47,15 @@ class SchoolOut(BaseModel):
 class PackageUpdate(BaseModel):
     package: str
 
+
+class SchoolUpdate(BaseModel):
+    name: Optional[str] = None
+    code: Optional[str] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    package: Optional[str] = None
+
 class FeatureUpdate(BaseModel):
     features: dict
 
@@ -51,6 +63,14 @@ class CreateAdminUserRequest(BaseModel):
     full_name: str
     email: EmailStr
     password: str
+
+
+def _normalize_package_name(package: Optional[str]) -> str:
+    normalized = (package or "starter").strip().lower()
+    aliases = {
+        "enterprise": "elite",
+    }
+    return aliases.get(normalized, normalized)
 
 
 # ── GET /schools/ — list all schools ─────────────────────────────────────────
@@ -104,6 +124,11 @@ def create_school(
     ):
         raise HTTPException(status_code=400, detail="A school with this name already exists")
 
+    if data.admin_email:
+        existing_admin = db.query(User).filter(User.email == data.admin_email).first()
+        if existing_admin:
+            raise HTTPException(status_code=400, detail="A user with this email already exists")
+
     reactivated_school = None
     if existing_by_code and not existing_by_code.is_active:
         reactivated_school = existing_by_code
@@ -116,11 +141,21 @@ def create_school(
         reactivated_school.address = data.address
         reactivated_school.phone = data.phone
         reactivated_school.email = data.email
-        reactivated_school.package = data.package or "starter"
+        reactivated_school.package = _normalize_package_name(data.package)
         reactivated_school.features = {}
         reactivated_school.is_active = True
         db.commit()
         db.refresh(reactivated_school)
+        if data.admin_email and data.admin_password:
+            db.add(User(
+                full_name=f"{normalized_name} Admin",
+                email=data.admin_email,
+                hashed_password=get_password_hash(data.admin_password),
+                role=UserRole.SCHOOL_ADMIN,
+                school_id=reactivated_school.id,
+                is_active=True,
+            ))
+            db.commit()
         return reactivated_school
 
     school = School(
@@ -129,13 +164,26 @@ def create_school(
         address=data.address,
         phone=data.phone,
         email=data.email,
-        package=data.package or "starter",
+        package=_normalize_package_name(data.package),
         features={},
         is_active=True,
     )
     db.add(school)
     db.commit()
     db.refresh(school)
+
+    if data.admin_email and data.admin_password:
+        new_admin = User(
+            full_name=f"{normalized_name} Admin",
+            email=data.admin_email,
+            hashed_password=get_password_hash(data.admin_password),
+            role=UserRole.SCHOOL_ADMIN,
+            school_id=school.id,
+            is_active=True,
+        )
+        db.add(new_admin)
+        db.commit()
+
     return school
 
 
@@ -167,6 +215,57 @@ def get_school(
     }
 
 
+@router.put("/{school_id}", response_model=SchoolOut)
+@router.patch("/{school_id}", response_model=SchoolOut)
+def update_school(
+    school_id: uuid.UUID,
+    data: SchoolUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role.value != "super_admin":
+        raise HTTPException(status_code=403, detail="Only super admins can edit schools")
+
+    school = db.query(School).filter(School.id == school_id, School.is_active == True).first()
+    if not school:
+        raise HTTPException(status_code=404, detail="School not found")
+
+    if data.name is not None:
+        normalized_name = data.name.strip()
+        existing_by_name = db.query(School).filter(
+            func.lower(School.name) == normalized_name.lower(),
+            School.id != school.id,
+            School.is_active == True,
+        ).first()
+        if existing_by_name:
+            raise HTTPException(status_code=400, detail="A school with this name already exists")
+        school.name = normalized_name
+
+    if data.code is not None:
+        normalized_code = data.code.strip().upper()
+        existing_by_code = db.query(School).filter(
+            School.code == normalized_code,
+            School.id != school.id,
+            School.is_active == True,
+        ).first()
+        if existing_by_code:
+            raise HTTPException(status_code=400, detail="A school with this code already exists")
+        school.code = normalized_code
+
+    if data.address is not None:
+        school.address = data.address
+    if data.phone is not None:
+        school.phone = data.phone
+    if data.email is not None:
+        school.email = data.email
+    if data.package is not None:
+        school.package = _normalize_package_name(data.package)
+
+    db.commit()
+    db.refresh(school)
+    return school
+
+
 # ── PATCH /schools/{school_id}/package — update package ──────────────────────
 
 @router.patch("/{school_id}/package")
@@ -183,16 +282,17 @@ def update_package(
     if not school:
         raise HTTPException(status_code=404, detail="School not found")
 
-    if data.package not in ["starter", "growth", "elite"]:
+    normalized_package = _normalize_package_name(data.package)
+    if normalized_package not in ["starter", "growth", "elite"]:
         raise HTTPException(status_code=400, detail="Invalid package. Must be starter, growth, or elite")
 
-    school.package = data.package
+    school.package = normalized_package
     school.features = {}
     db.commit()
     db.refresh(school)
 
     return {
-        "message": f"Package updated to {data.package}",
+        "message": f"Package updated to {normalized_package}",
         "features": get_school_features(school),
     }
 
