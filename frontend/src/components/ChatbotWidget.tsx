@@ -11,30 +11,51 @@ async function buildContext(): Promise<string> {
   let ctx = ''
 
   try {
-    const { data } = await api.get('/api/v1/schools/')
-    const schools = Array.isArray(data) ? data : (data?.items ?? [])
-    if (schools.length > 0) {
-      ctx += `\nSchools managed:\n` + schools.slice(0, 10)
-        .map((s: any) => `- ${s.name} (${s.city || s.location || 'N/A'})`)
-        .join('\n')
+    const { data } = await api.get('/api/v1/teachers/')
+    const teachers = Array.isArray(data) ? data : []
+    ctx += `\nTotal teachers: ${teachers.length}`
+    if (teachers.length > 0) {
+      ctx += `\nTeacher list: ` + teachers.slice(0, 10)
+        .map((t: any) => `${t.name} (${t.subject || t.specialization || 'N/A'})`)
+        .join(', ')
     }
-  } catch (e) { console.warn('schools fetch failed', e) }
+  } catch (e) { console.warn('teachers failed', e) }
 
   try {
-    const { data } = await api.get('/api/v1/users/')
-    const users = Array.isArray(data) ? data : (data?.items ?? [])
-    if (users.length > 0) {
-      ctx += `\n\nTotal users: ${users.length}`
+    const { data } = await api.get('/api/v1/students/')
+    const students = Array.isArray(data) ? data : []
+    ctx += `\nTotal students: ${students.length}`
+    if (students.length > 0) {
+      ctx += `\nClasses represented: ` + [...new Set(students.map((s: any) => s.class_name || s.class).filter(Boolean))].join(', ')
     }
-  } catch (e) { console.warn('users fetch failed', e) }
+  } catch (e) { console.warn('students failed', e) }
 
-  return ctx || 'No additional context available.'
+  try {
+    const { data } = await api.get('/api/v1/fees/summary')
+    ctx += `\nFee summary: ${JSON.stringify(data)}`
+  } catch (e) { console.warn('fees failed', e) }
+
+  try {
+    const { data } = await api.get('/api/v1/academics/classes')
+    const classes = Array.isArray(data) ? data : []
+    if (classes.length > 0) {
+      ctx += `\nClasses: ` + classes.map((c: any) => c.name || c.class_name).join(', ')
+    }
+  } catch (e) { console.warn('classes failed', e) }
+
+  try {
+    const { data } = await api.get('/api/v1/assignments/')
+    const assignments = Array.isArray(data) ? data : []
+    ctx += `\nTotal assignments: ${assignments.length}`
+  } catch (e) { console.warn('assignments failed', e) }
+
+  return ctx || 'No data available.'
 }
 
 export default function ChatbotWidget() {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: 'Hi! I\'m Nyxion AI. Ask me anything about your schools or platform.' }
+    { role: 'assistant', content: "Hi! I'm Nyxion AI. Ask me anything about your school — teachers, students, fees, assignments, and more." }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -99,7 +120,7 @@ export default function ChatbotWidget() {
             ))}
             {loading && (
               <div className="flex justify-start">
-                <div className="bg-slate-100 text-slate-500 px-3 py-2 rounded-2xl rounded-bl-sm text-xs">
+                <div className="bg-slate-100 text-slate-500 px-3 py-2 rounded-2xl rounded-bl-sm text-xs animate-pulse">
                   Thinking...
                 </div>
               </div>
@@ -108,7 +129,7 @@ export default function ChatbotWidget() {
           </div>
 
           {/* Input */}
-          <div className="border-t border-slate-200 px-3 py-2 flex gap-2">
+          <div className="border-t border-slate-200 px-3 py-2 flex gap-2 items-center">
             <input
               className="flex-1 text-sm outline-none text-slate-800 placeholder-slate-400"
               placeholder="Ask something..."
