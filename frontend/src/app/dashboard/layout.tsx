@@ -2,6 +2,7 @@
 import { useAuth } from "@/context/AuthContext";
 import { useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
+import ChatbotWidget from "@/components/ChatbotWidget";
 
 const isPortalRole = (role?: string) => role === "teacher" || role === "student" || role === "parent";
 
@@ -25,6 +26,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen bg-slate-50">
       <Sidebar />
       <main className="flex-1 overflow-auto bg-slate-50">{children}</main>
+      <ChatbotWidget />
     </div>
   );
 }

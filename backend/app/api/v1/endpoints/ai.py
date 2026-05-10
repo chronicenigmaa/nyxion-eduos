@@ -211,9 +211,14 @@ async def chatbot(request: ChatRequest, db: Session = Depends(get_db), current_u
     if school and not check_feature(school, "ai_chatbot"):
         raise HTTPException(status_code=403, detail="Not available in your package")
     context = request.school_context or ""
-    system = f"""You are the Nyxion AI assistant for a Pakistani school. You help teachers and administrators answer questions about their school data, teaching strategies, and administrative tasks.
-School context: {context}
-Be helpful, concise, and specific. If asked about student data you don't have, say so clearly."""
+    system = (
+        "You are Nyxion AI, a smart assistant embedded in a Pakistani school management platform. "
+        "You have been given LIVE DATA from the system below. "
+        "ALWAYS answer using this data first. Never say you don't have access to the data — it is provided below. "
+        "Be specific: mention school names, user counts, and any figures from the data. "
+        "Only say data is unavailable if it is genuinely missing from the context below.\n\n"
+        f"=== LIVE SYSTEM DATA ===\n{context}\n=== END DATA ==="
+    )
     response = await call_ai(system, request.message, 1000)
     return {"response": response}
 
