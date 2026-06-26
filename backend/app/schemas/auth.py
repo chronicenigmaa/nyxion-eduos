@@ -1,7 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 import uuid
-from app.core.logging_client import log_event
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -21,7 +20,3 @@ class UserCreate(BaseModel):
     
     
 
-# on bad credentials:
-log_event("warning", "auth.login_failed", detail_email=request.email, ip=...)
-# on success:
-log_event("info", "auth.login", user_id=str(user.id), role=user.role.value)

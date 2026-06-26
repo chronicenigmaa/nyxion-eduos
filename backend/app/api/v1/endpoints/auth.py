@@ -11,6 +11,8 @@ from pydantic import BaseModel
 from jose import JWTError, jwt
 import uuid
 from datetime import datetime, timedelta
+from app.core.logging_client import log_event   # add with the other imports, top of file
+
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -38,6 +40,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 def login(request: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == request.email).first()
     if not user or not verify_password(request.password, user.hashed_password):
+        log_event("warning", "auth.login_failed", detail_email=request.email)
         raise HTTPException(status_code=401, detail="Invalid credentials")
     school = db.query(School).filter(School.id == user.school_id).first() if user.school_id else None
     token = create_access_token({
@@ -45,6 +48,8 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
         "school_id": str(user.school_id) if user.school_id else None,
         "role": user.role.value
     })
+    log_event("info", "auth.login", user_id=str(user.id), role=user.role.value)
+
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -116,3 +121,5 @@ def get_sso_token(current_user: User = Depends(get_current_user)):
     }
     token = jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return {"token": token}
+
+
