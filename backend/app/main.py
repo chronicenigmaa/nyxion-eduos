@@ -19,10 +19,39 @@ from sqlalchemy import inspect, text
 import json
 import logging
 from datetime import datetime
+import time
+from starlette.requests import Request
+from app.core.logging_client import log_event
+
 
 logger = logging.getLogger("nyxion")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
+    
+
+@app.middleware("http")
+async def access_logger(request: Request, call_next):
+    start = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        log_event(
+            "error", "request.unhandled",
+            method=request.method, path=request.url.path,
+            status_code=500,
+            duration_ms=int((time.perf_counter() - start) * 1000),
+            ip=request.client.host if request.client else None,
+        )
+        raise
+    log_event(
+        "info" if response.status_code < 400 else "warning",
+        "request",
+        method=request.method, path=request.url.path,
+        status_code=response.status_code,
+        duration_ms=int((time.perf_counter() - start) * 1000),
+        ip=request.client.host if request.client else None,
+    )
+    return response
 
 DEMO_PASSWORD = "admin123"
 DEMO_SCHOOLS = [
