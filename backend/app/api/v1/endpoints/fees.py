@@ -8,6 +8,7 @@ from app.models.subject import Subject
 from app.models.class_section import ClassSection
 from app.models.user import User
 from app.api.v1.endpoints.auth import get_current_user
+from app.core.scoping import apply_school_scope, school_id_for_record
 from pydantic import BaseModel
 from typing import Optional
 import uuid
@@ -66,10 +67,11 @@ def _resolve_student(
     student_name: Optional[str],
     roll_number: Optional[str],
 ) -> Student:
-    query = db.query(Student).filter(
-        Student.school_id == school_id,
-        Student.is_active == True,
-    )
+    query = db.query(Student).filter(Student.is_active == True)
+    # school_id is None for a super admin, who is not tied to a school; in that
+    # case the student is looked up across every school rather than nowhere.
+    if school_id is not None:
+        query = query.filter(Student.school_id == school_id)
     if student_id:
         student = query.filter(Student.id == student_id).first()
         if student:
@@ -122,7 +124,9 @@ def create_fee(data: FeeCreate, db: Session = Depends(get_db), current_user: Use
         roll_number=data.roll_number,
     )
     fee = Fee(
-        school_id=current_user.school_id,
+        # From the student, not the caller: a super admin has no school, and
+        # this also blocks billing another school's student.
+        school_id=school_id_for_record(student.school_id, current_user),
         student_id=student.id,
         amount=data.amount,
         month=(data.month or "").strip() or None,
@@ -140,14 +144,18 @@ def create_fee(data: FeeCreate, db: Session = Depends(get_db), current_user: Use
 @router.put("/{fee_id}")
 @router.patch("/{fee_id}")
 def update_fee(fee_id: uuid.UUID, data: FeeUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    fee = db.query(Fee).filter(Fee.id == fee_id, Fee.school_id == current_user.school_id).first()
+    fee = apply_school_scope(
+        db.query(Fee).filter(Fee.id == fee_id), Fee.school_id, current_user,
+    ).first()
     if not fee:
         raise HTTPException(status_code=404, detail="Fee not found")
 
     if data.student_id or data.student_name or data.roll_number:
+        # Stay inside the fee's own school, so a fee cannot be reassigned to a
+        # student at a different school.
         student = _resolve_student(
             db,
-            school_id=current_user.school_id,
+            school_id=fee.school_id,
             student_id=data.student_id,
             student_name=data.student_name,
             roll_number=data.roll_number,
@@ -175,7 +183,9 @@ def update_fee(fee_id: uuid.UUID, data: FeeUpdate, db: Session = Depends(get_db)
 
 @router.delete("/{fee_id}")
 def delete_fee(fee_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    fee = db.query(Fee).filter(Fee.id == fee_id, Fee.school_id == current_user.school_id).first()
+    fee = apply_school_scope(
+        db.query(Fee).filter(Fee.id == fee_id), Fee.school_id, current_user,
+    ).first()
     if not fee:
         raise HTTPException(status_code=404, detail="Fee not found")
     db.delete(fee)
