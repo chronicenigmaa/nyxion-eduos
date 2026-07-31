@@ -3,7 +3,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import verify_password, create_access_token, get_password_hash, decode_token
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.school import School
 from app.models.password_reset import PasswordResetToken
 from app.schemas.auth import LoginRequest, Token, UserCreate
@@ -30,6 +30,55 @@ router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 MIN_PASSWORD_LENGTH = 6
+
+
+def identity_payload(db: Session, user: User) -> dict:
+    """The user object returned by /login and /me.
+
+    EduOS is the system of record for accounts: LearnSpace signs people in by
+    posting their credentials here and provisions its own row from this
+    payload. That is why a student's roll_number / class / section and a
+    teacher's subject are included — without them LearnSpace creates a student
+    with no roll number, and the parent-link sync (which matches on roll
+    number) can never find them.
+    """
+    school = db.query(School).filter(School.id == user.school_id).first() if user.school_id else None
+
+    payload = {
+        "id": str(user.id),
+        "email": user.email,
+        "full_name": user.full_name,
+        "role": user.role.value,
+        "school_id": str(user.school_id) if user.school_id else None,
+        "school_name": school.name if school else None,
+        "must_change_password": user.must_change_password,
+    }
+
+    if user.role == UserRole.STUDENT and user.email:
+        from app.models.student import Student
+
+        student = db.query(Student).filter(
+            func.lower(Student.email) == user.email.lower(),
+            Student.is_active == True,
+        ).first()
+        if student:
+            payload.update({
+                "roll_number": student.roll_number,
+                "class_name": student.class_name,
+                "section": student.section,
+            })
+
+    if user.role == UserRole.TEACHER and user.email:
+        from app.models.teacher import Teacher
+
+        teacher = db.query(Teacher).filter(
+            func.lower(Teacher.email) == user.email.lower(),
+            Teacher.is_active == True,
+        ).first()
+        if teacher:
+            payload["subject"] = teacher.subject
+
+    return payload
 
 
 class ChangePasswordRequest(BaseModel):
@@ -76,7 +125,6 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
     if not user.is_active:
         log_event("warning", "auth.login_deactivated", user_id=str(user.id))
         raise HTTPException(status_code=403, detail="This account has been deactivated. Contact your administrator.")
-    school = db.query(School).filter(School.id == user.school_id).first() if user.school_id else None
     token = create_access_token({
         "sub": str(user.id),
         "school_id": str(user.school_id) if user.school_id else None,
@@ -87,30 +135,13 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
     return {
         "access_token": token,
         "token_type": "bearer",
-        "user": {
-            "id": str(user.id),
-            "email": user.email,
-            "full_name": user.full_name,
-            "role": user.role.value,
-            "school_id": str(user.school_id) if user.school_id else None,
-            "school_name": school.name if school else None,
-            "must_change_password": user.must_change_password,
-        }
+        "user": identity_payload(db, user),
     }
 
 
 @router.get("/me")
 def get_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    school = db.query(School).filter(School.id == current_user.school_id).first() if current_user.school_id else None
-    return {
-        "id": str(current_user.id),
-        "email": current_user.email,
-        "full_name": current_user.full_name,
-        "role": current_user.role.value,
-        "school_id": str(current_user.school_id) if current_user.school_id else None,
-        "school_name": school.name if school else None,
-        "must_change_password": current_user.must_change_password,
-    }
+    return identity_payload(db, current_user)
 
 
 @router.post("/change-password")
@@ -131,18 +162,9 @@ def change_password(
 
     send_password_changed_email(current_user.email, current_user.full_name)
 
-    school = db.query(School).filter(School.id == current_user.school_id).first() if current_user.school_id else None
     return {
         "message": "Password changed successfully",
-        "user": {
-            "id": str(current_user.id),
-            "email": current_user.email,
-            "full_name": current_user.full_name,
-            "role": current_user.role.value,
-            "school_id": str(current_user.school_id) if current_user.school_id else None,
-            "school_name": school.name if school else None,
-            "must_change_password": current_user.must_change_password,
-        }
+        "user": identity_payload(db, current_user),
     }
 
 
