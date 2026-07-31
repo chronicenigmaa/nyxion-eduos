@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from app.core.database import get_db
 from app.core.security import get_password_hash
 from app.models.student import Student
+from app.models.student_parent import StudentParent
 from app.models.school import School
 from app.models.user import User, UserRole
 from app.schemas.student import StudentCreate, StudentOut
@@ -29,6 +30,15 @@ class StudentUpdate(BaseModel):
     address: str | None = None
     email: EmailStr | None = None
     password: str | None = None
+    # Full replacement of the linked parent accounts. Omit to leave them as-is.
+    parent_user_ids: list[uuid.UUID] | None = None
+
+
+class ParentOption(BaseModel):
+    id: uuid.UUID
+    full_name: str
+    email: str
+    children_count: int
 
 
 def _normalized_roll(roll_number: str | None) -> str | None:
@@ -81,6 +91,104 @@ def _validate_student_email(db: Session, *, email: str | None, school_id, studen
             raise HTTPException(status_code=400, detail="This email is already linked to another school")
 
 
+def _set_student_parents(db: Session, student: Student, parent_user_ids: list[uuid.UUID] | None, school_id):
+    """Replace a student's linked parent accounts. None leaves them untouched."""
+    if parent_user_ids is None:
+        return
+
+    unique_ids = list(dict.fromkeys(parent_user_ids))
+    parents: list[User] = []
+    for parent_user_id in unique_ids:
+        parent = db.query(User).filter(User.id == parent_user_id).first()
+        if not parent or not parent.is_active:
+            raise HTTPException(status_code=404, detail="Parent account not found")
+        if parent.role != UserRole.PARENT:
+            raise HTTPException(status_code=400, detail=f"{parent.email} is not a parent account")
+        if parent.school_id and school_id and parent.school_id != school_id:
+            raise HTTPException(status_code=400, detail=f"{parent.email} belongs to another school")
+        parents.append(parent)
+
+    student.parents = parents
+
+
+@router.get("/parents", response_model=List[ParentOption])
+def list_parent_options(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Parent accounts that can be linked to a student, for the admin picker."""
+    query = db.query(User).filter(
+        User.role == UserRole.PARENT,
+        User.is_active == True,
+    )
+    if current_user.role != UserRole.SUPER_ADMIN:
+        if not current_user.school_id:
+            raise HTTPException(status_code=400, detail="No school associated")
+        query = query.filter(User.school_id == current_user.school_id)
+
+    parents = query.order_by(User.full_name).all()
+    if not parents:
+        return []
+
+    counts = dict(
+        db.query(StudentParent.parent_user_id, func.count(StudentParent.student_id))
+        .join(Student, Student.id == StudentParent.student_id)
+        .filter(
+            StudentParent.parent_user_id.in_([p.id for p in parents]),
+            Student.is_active == True,
+        )
+        .group_by(StudentParent.parent_user_id)
+        .all()
+    )
+    return [
+        ParentOption(
+            id=parent.id,
+            full_name=parent.full_name,
+            email=parent.email,
+            children_count=counts.get(parent.id, 0),
+        )
+        for parent in parents
+    ]
+
+
+@router.get("/parent-links")
+def parent_links(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Every parent → children link, for LearnSpace to mirror into parent_children.
+
+    Children carry `roll_number` because that is the only identifier the two
+    products share — a student is a row in `eduos.students` here and a row in
+    `learnspace.users` there, so ids cannot be matched across schemas.
+    """
+    if current_user.role not in (UserRole.SUPER_ADMIN, UserRole.SCHOOL_ADMIN):
+        raise HTTPException(status_code=403, detail="You are not allowed to read parent links")
+
+    query = db.query(User).filter(User.role == UserRole.PARENT, User.is_active == True)
+    if current_user.role != UserRole.SUPER_ADMIN:
+        if not current_user.school_id:
+            raise HTTPException(status_code=400, detail="No school associated")
+        query = query.filter(User.school_id == current_user.school_id)
+
+    return {
+        "parents": [
+            {
+                "id": str(parent.id),
+                "full_name": parent.full_name,
+                "email": parent.email,
+                "school_id": str(parent.school_id) if parent.school_id else None,
+                "children": [
+                    {
+                        "id": str(child.id),
+                        "full_name": child.full_name,
+                        "roll_number": child.roll_number,
+                        "class_name": child.class_name,
+                        "section": child.section,
+                    }
+                    for child in parent.children
+                    if child.is_active
+                ],
+            }
+            for parent in query.order_by(User.full_name).all()
+        ]
+    }
+
+
 def _sync_student_user(db: Session, student: Student, *, password: str | None = None, linked_user: User | None = None):
     if not student.email:
         return
@@ -115,11 +223,14 @@ def _sync_student_user(db: Session, student: Student, *, password: str | None = 
 @router.get("/", response_model=List[StudentOut])
 def list_students(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
+        # Eager-load parents: StudentOut renders them, and a lazy load would be
+        # one extra query per student.
+        query = db.query(Student).options(selectinload(Student.parents))
         if current_user.role.value == "super_admin":
-            return db.query(Student).filter(Student.is_active == True).all()
+            return query.filter(Student.is_active == True).all()
         if not current_user.school_id:
             raise HTTPException(status_code=400, detail="No school associated")
-        return db.query(Student).filter(
+        return query.filter(
             Student.school_id == current_user.school_id,
             Student.is_active == True
         ).all()
@@ -196,6 +307,7 @@ def create_student(data: StudentCreate, db: Session = Depends(get_db), current_u
         )
         db.add(student)
         db.flush()
+        _set_student_parents(db, student, data.parent_user_ids, target_school_id)
         _sync_student_user(db, student, password=data.password)
         db.commit()
         db.refresh(student)
@@ -282,6 +394,7 @@ def update_student(student_id: uuid.UUID, data: StudentUpdate, db: Session = Dep
         student.phone = data.phone
         student.address = data.address
         student.email = normalized_email
+        _set_student_parents(db, student, data.parent_user_ids, student.school_id)
 
         if linked_user and normalized_email:
             linked_user.email = normalized_email

@@ -2,6 +2,7 @@ from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Date, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.core.database import Base
+from app.models.student_parent import StudentParent
 import uuid
 from datetime import datetime
 
@@ -23,3 +24,8 @@ class Student(Base):
 # Add to backend/app/models/student.py
     email = Column(String(255), nullable=True)
     school = relationship("School", back_populates="students")
+    parents = relationship(
+        "User",
+        secondary=StudentParent.__table__,
+        back_populates="children",
+    )

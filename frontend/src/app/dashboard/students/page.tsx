@@ -16,7 +16,10 @@ interface Student {
   section: string;
   phone: string;
   email: string;
+  parents: ParentBrief[];
 }
+
+type ParentBrief = { id: string; full_name: string; email: string };
 
 type ApiError = { response?: { data?: { detail?: string } } };
 
@@ -30,9 +33,12 @@ type StudentForm = {
   phone: string;
   email: string;
   password: string;
+  parent_user_ids: string[];
 };
 
 type School = { id: string; name: string; code: string };
+
+type ParentOption = { id: string; full_name: string; email: string; children_count: number };
 
 const emptyForm: StudentForm = {
   full_name: "",
@@ -44,12 +50,14 @@ const emptyForm: StudentForm = {
   phone: "",
   email: "",
   password: "",
+  parent_user_ids: [],
 };
 
 export default function StudentsPage() {
   const { user } = useAuth();
   const [students, setStudents] = useState<Student[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
+  const [parents, setParents] = useState<ParentOption[]>([]);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
@@ -67,8 +75,18 @@ export default function StudentsPage() {
     }
   };
 
+  const loadParents = async () => {
+    try {
+      const { data } = await api.get("/api/v1/students/parents");
+      setParents(data);
+    } catch {
+      // A school with no parent accounts yet is normal — leave the picker empty.
+    }
+  };
+
   useEffect(() => {
     void load();
+    void loadParents();
   }, []);
 
   useEffect(() => {
@@ -103,6 +121,7 @@ export default function StudentsPage() {
           phone: form.phone,
           email: form.email || undefined,
           password: form.password || undefined,
+          parent_user_ids: form.parent_user_ids,
         };
         await api.put(`/api/v1/students/${editingStudentId}`, updatePayload);
         toast.success("Student updated");
@@ -112,7 +131,7 @@ export default function StudentsPage() {
         toast.success("Student added and LearnSpace login saved");
       }
       resetForm();
-      await load();
+      await Promise.all([load(), loadParents()]);
     } catch (error: unknown) {
       const message = (error as ApiError)?.response?.data?.detail || "Failed to save student";
       toast.error(message);
@@ -130,6 +149,7 @@ export default function StudentsPage() {
       phone: student.phone || "",
       email: student.email || "",
       password: "",
+      parent_user_ids: (student.parents || []).map((p) => p.id),
     });
     setEditingStudentId(student.id);
     setShowForm(true);
@@ -254,8 +274,47 @@ export default function StudentsPage() {
                 />
               </div>
             ))}
+            <div className="col-span-full">
+              <label className="block text-xs text-slate-500 mb-1">Parent / Guardian Accounts</label>
+              {parents.length === 0 ? (
+                <p className="text-slate-400 text-sm border border-dashed border-slate-200 rounded-lg px-3 py-3">
+                  No parent accounts yet — create one under Users with the role &quot;Parent&quot;, then link them here.
+                </p>
+              ) : (
+                <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-50">
+                  {parents.map((parent) => {
+                    const checked = form.parent_user_ids.includes(parent.id);
+                    return (
+                      <label key={parent.id} className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() =>
+                            setForm({
+                              ...form,
+                              parent_user_ids: checked
+                                ? form.parent_user_ids.filter((id) => id !== parent.id)
+                                : [...form.parent_user_ids, parent.id],
+                            })
+                          }
+                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-slate-900">{parent.full_name}</span>
+                        <span className="text-xs text-slate-400">{parent.email}</span>
+                        {parent.children_count > 0 && (
+                          <span className="ml-auto text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg">
+                            {parent.children_count} linked
+                          </span>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
             <p className="col-span-full text-xs text-slate-400 -mt-1">
               Email and password are saved for the student so LearnSpace can use the same login.
+              One parent can be linked to several students, and a student can have both guardians linked.
             </p>
             <div className="col-span-full flex gap-3 pt-2">
               <button type="submit" className="px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium">Save</button>
@@ -279,17 +338,17 @@ export default function StudentsPage() {
         <table className="w-full">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50">
-              {["Roll No", "Name", "Father Name", "Class", "Section", "Phone", "", ""].map((h) => (
+              {["Roll No", "Name", "Father Name", "Class", "Section", "Phone", "Parent", "", ""].map((h) => (
                 <th key={h} className="text-left text-xs text-slate-500 font-medium px-4 py-3">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8} className="text-center text-slate-400 py-12">Loading...</td></tr>
+              <tr><td colSpan={9} className="text-center text-slate-400 py-12">Loading...</td></tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={8} className="text-center py-12"><GraduationCap size={32} className="mx-auto text-slate-300 mb-2" /><p className="text-slate-400 text-sm">No students yet</p></td>
+                <td colSpan={9} className="text-center py-12"><GraduationCap size={32} className="mx-auto text-slate-300 mb-2" /><p className="text-slate-400 text-sm">No students yet</p></td>
               </tr>
             ) : (
               filtered.map((s) => (
@@ -299,7 +358,15 @@ export default function StudentsPage() {
                   <td className="px-4 py-3 text-slate-500 text-sm">{s.father_name || "-"}</td>
                   <td className="px-4 py-3 text-slate-700 text-sm">{s.class_name || "-"}</td>
                   <td className="px-4 py-3 text-slate-700 text-sm">{s.section || "-"}</td>
-                  <td className="px-4 py-3 text-slate-500 text-sm">{s.phone || "-"}</td>
+                  <td className="px-4 py-3 text-sm">
+                    {(s.parents || []).length > 0 ? (
+                      <span className="text-slate-700" title={(s.parents || []).map((p) => p.email).join(", ")}>
+                        {(s.parents || []).map((p) => p.full_name).join(", ")}
+                      </span>
+                    ) : (
+                      <button onClick={() => handleEdit(s)} className="text-blue-600 hover:underline text-xs">Link parent</button>
+                    )}
+                  </td>
                   <td className="px-4 py-3"><button onClick={() => handleEdit(s)} className="text-slate-300 hover:text-blue-500 transition-all"><Pencil size={15} /></button></td>
                   <td className="px-4 py-3"><button onClick={() => handleDelete(s.id)} className="text-slate-300 hover:text-red-500 transition-all"><Trash2 size={15} /></button></td>
                 </tr>

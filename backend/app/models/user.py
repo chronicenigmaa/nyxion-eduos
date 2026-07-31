@@ -2,6 +2,7 @@ from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Enum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.core.database import Base
+from app.models.student_parent import StudentParent
 import uuid
 from datetime import datetime
 import enum
@@ -27,3 +28,9 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     school = relationship("School", back_populates="users")
+    # Students linked to this account when role == PARENT. Empty for every other role.
+    children = relationship(
+        "Student",
+        secondary=StudentParent.__table__,
+        back_populates="parents",
+    )

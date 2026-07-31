@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import api_router
 from app.core.database import engine
-from app.models import School, User, Student
+from app.models import School, User, Student, StudentParent
 from app.core.database import Base
 from app.core.database import SessionLocal
 from app.core.database import get_db_location, ensure_schema_exists, DB_SCHEMA
@@ -74,7 +74,20 @@ DEMO_USERS = [
         "role": UserRole.TEACHER,
         "school_code": "TCS001",
     },
+    {
+        "email": "parent@tcs.edu.pk",
+        "full_name": "Hassan Ali",
+        "role": UserRole.PARENT,
+        "school_code": "TCS001",
+    },
 ]
+
+# Demo parent → children links, keyed by roll number. Roll number is the
+# identifier LearnSpace matches on, so the demo family exercises the same join
+# the real sync uses.
+DEMO_PARENT_LINKS = {
+    "parent@tcs.edu.pk": ["TCS-001", "TCS-004"],
+}
 
 
 def list_tables():
@@ -383,6 +396,8 @@ def ensure_demo_records():
             {"school_code": "TCS001", "full_name": "Fatima Khan", "father_name": "Imran Khan", "roll_number": "TCS-002", "class_name": "8", "section": "A", "phone": "0301-2345678", "address": "Karachi"},
             {"school_code": "TCS001", "full_name": "Umar Farooq", "father_name": "Farooq Ahmed", "roll_number": "TCS-003", "class_name": "9", "section": "B", "phone": "0302-3456789", "address": "Karachi"},
             {"school_code": "BHS001", "full_name": "Sara Ahmed", "father_name": "Ahmed Raza", "roll_number": "BHS-001", "class_name": "7", "section": "A", "phone": "0305-6789012", "address": "Lahore"},
+            # Sibling of Ali Hassan (TCS-001) — both link to the demo parent account.
+            {"school_code": "TCS001", "full_name": "Zainab Hassan", "father_name": "Hassan Ali", "roll_number": "TCS-004", "class_name": "6", "section": "A", "phone": "0300-1234567", "address": "Karachi"},
         ]
         for student_data in demo_students:
             school = school_map[student_data["school_code"]]
@@ -404,6 +419,29 @@ def ensure_demo_records():
                         is_active=True,
                     )
                 )
+
+        db.commit()
+
+        # Link the demo parent to their children. Idempotent: an admin who
+        # unlinks a demo family in the UI does not get it re-linked on restart,
+        # so only missing links for a parent with no links at all are created.
+        for parent_email, roll_numbers in DEMO_PARENT_LINKS.items():
+            parent = db.query(User).filter(
+                func.lower(User.email) == parent_email.lower(),
+                User.role == UserRole.PARENT,
+            ).first()
+            if not parent:
+                continue
+            if db.query(StudentParent).filter(StudentParent.parent_user_id == parent.id).first():
+                continue
+
+            children = db.query(Student).filter(
+                Student.school_id == parent.school_id,
+                Student.roll_number.in_(roll_numbers),
+                Student.is_active == True,
+            ).all()
+            for child in children:
+                db.add(StudentParent(parent_user_id=parent.id, student_id=child.id))
 
         db.commit()
 

@@ -1,7 +1,16 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import List, Optional
 import uuid
 from datetime import date, datetime
+
+
+class ParentBrief(BaseModel):
+    id: uuid.UUID
+    full_name: str
+    email: str
+
+    class Config:
+        from_attributes = True
 
 
 class StudentCreate(BaseModel):
@@ -16,6 +25,8 @@ class StudentCreate(BaseModel):
     address: Optional[str] = None
     email: Optional[EmailStr] = None
     password: Optional[str] = None
+    # Parent accounts to link. Omit to link none.
+    parent_user_ids: Optional[List[uuid.UUID]] = None
 
 
 class StudentOut(BaseModel):
@@ -29,6 +40,7 @@ class StudentOut(BaseModel):
     phone: Optional[str]
     address: Optional[str]
     email: Optional[EmailStr]
+    parents: List[ParentBrief] = []
     is_active: bool
     created_at: datetime
 
