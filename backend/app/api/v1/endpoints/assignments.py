@@ -6,6 +6,7 @@ from app.models.submission import Submission, SubmissionStatus
 from app.models.student import Student
 from app.models.user import User
 from app.api.v1.endpoints.auth import get_current_user
+from app.core.scoping import apply_school_scope, is_super_admin, school_id_for_record
 from pydantic import BaseModel
 from typing import Optional, List
 import uuid
@@ -33,12 +34,21 @@ class GradeSubmission(BaseModel):
 
 @router.get("/")
 def list_assignments(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return db.query(Assignment).filter(
-        Assignment.school_id == current_user.school_id
+    return apply_school_scope(
+        db.query(Assignment), Assignment.school_id, current_user,
     ).order_by(Assignment.created_at.desc()).all()
 
 @router.post("/")
 def create_assignment(data: AssignmentCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # assignments.school_id is NOT NULL and a super admin has no school of
+    # their own, so say that plainly instead of failing on a constraint.
+    if is_super_admin(current_user):
+        raise HTTPException(
+            status_code=400,
+            detail="Super admins are not tied to a school. Sign in as that school's admin to create an assignment.",
+        )
+    if not current_user.school_id:
+        raise HTTPException(status_code=400, detail="No school associated")
     assignment = Assignment(**data.dict(), school_id=current_user.school_id)
     db.add(assignment)
     db.commit()
@@ -47,9 +57,9 @@ def create_assignment(data: AssignmentCreate, db: Session = Depends(get_db), cur
 
 @router.get("/{assignment_id}/submissions")
 def get_submissions(assignment_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    assignment = db.query(Assignment).filter(
-        Assignment.id == assignment_id,
-        Assignment.school_id == current_user.school_id
+    assignment = apply_school_scope(
+        db.query(Assignment).filter(Assignment.id == assignment_id),
+        Assignment.school_id, current_user,
     ).first()
     if not assignment:
         raise HTTPException(status_code=404, detail="Assignment not found")
@@ -58,9 +68,10 @@ def get_submissions(assignment_id: uuid.UUID, db: Session = Depends(get_db), cur
         Submission.assignment_id == assignment_id
     ).all()
 
-    # Get all students in the class
+    # Students in the assignment's own school, not the caller's — a super admin
+    # has no school of their own.
     students = db.query(Student).filter(
-        Student.school_id == current_user.school_id,
+        Student.school_id == assignment.school_id,
         Student.class_name == assignment.class_name,
         Student.is_active == True
     ).all()
@@ -117,8 +128,11 @@ def submit_assignment(data: SubmissionCreate, db: Session = Depends(get_db), cur
         existing.submitted_at = datetime.utcnow()
         db.commit()
         return {"message": "Resubmitted"}
+    student = db.query(Student).filter(Student.id == data.student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
     sub = Submission(
-        school_id=current_user.school_id,
+        school_id=school_id_for_record(student.school_id, current_user),
         assignment_id=data.assignment_id,
         student_id=data.student_id,
         content=data.content,
@@ -130,9 +144,9 @@ def submit_assignment(data: SubmissionCreate, db: Session = Depends(get_db), cur
 
 @router.delete("/{assignment_id}")
 def delete_assignment(assignment_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    assignment = db.query(Assignment).filter(
-        Assignment.id == assignment_id,
-        Assignment.school_id == current_user.school_id
+    assignment = apply_school_scope(
+        db.query(Assignment).filter(Assignment.id == assignment_id),
+        Assignment.school_id, current_user,
     ).first()
     if not assignment:
         raise HTTPException(status_code=404, detail="Not found")

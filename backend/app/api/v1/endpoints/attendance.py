@@ -5,6 +5,7 @@ from app.models.attendance import Attendance, AttendanceStatus
 from app.models.student import Student
 from app.models.user import User
 from app.api.v1.endpoints.auth import get_current_user
+from app.core.scoping import apply_school_scope, school_id_for_record
 from pydantic import BaseModel
 from typing import Optional, List
 import uuid
@@ -24,17 +25,24 @@ class AttendanceBulk(BaseModel):
 @router.post("/mark")
 def mark_attendance(data: AttendanceBulk, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     for record in data.records:
+        # The school comes from the student, not the caller: a super admin has
+        # none, and this also blocks marking another school's student.
+        student = db.query(Student).filter(Student.id == record.student_id).first()
+        if not student:
+            raise HTTPException(status_code=404, detail="Student not found")
+        school_id = school_id_for_record(student.school_id, current_user)
+
         existing = db.query(Attendance).filter(
             Attendance.student_id == record.student_id,
             Attendance.date == data.date,
-            Attendance.school_id == current_user.school_id
+            Attendance.school_id == school_id
         ).first()
         if existing:
             existing.status = record.status
             existing.remarks = record.remarks
         else:
             att = Attendance(
-                school_id=current_user.school_id,
+                school_id=school_id,
                 student_id=record.student_id,
                 date=data.date,
                 status=record.status,
@@ -48,13 +56,13 @@ def mark_attendance(data: AttendanceBulk, db: Session = Depends(get_db), current
 def get_report(date: Optional[date] = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     from datetime import date as today_date
     target_date = date or today_date.today()
-    records = db.query(Attendance).filter(
-        Attendance.school_id == current_user.school_id,
-        Attendance.date == target_date
+    records = apply_school_scope(
+        db.query(Attendance).filter(Attendance.date == target_date),
+        Attendance.school_id, current_user,
     ).all()
-    students = db.query(Student).filter(
-        Student.school_id == current_user.school_id,
-        Student.is_active == True
+    students = apply_school_scope(
+        db.query(Student).filter(Student.is_active == True),
+        Student.school_id, current_user,
     ).all()
     attendance_map = {str(r.student_id): r.status for r in records}
     return {

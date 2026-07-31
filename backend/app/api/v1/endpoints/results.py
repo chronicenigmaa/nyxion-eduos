@@ -5,6 +5,7 @@ from app.models.result import Result
 from app.models.student import Student
 from app.models.user import User
 from app.api.v1.endpoints.auth import get_current_user
+from app.core.scoping import apply_school_scope, school_id_for_record
 from pydantic import BaseModel
 from typing import Optional, List
 import uuid
@@ -33,7 +34,7 @@ def calculate_grade(marks_obtained, total_marks):
 @router.get("/")
 def list_results(class_name: Optional[str] = None, exam_type: Optional[str] = None,
                  db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    q = db.query(Result, Student).join(Student).filter(Result.school_id == current_user.school_id)
+    q = apply_school_scope(db.query(Result, Student).join(Student), Result.school_id, current_user)
     if class_name: q = q.filter(Result.class_name == class_name)
     if exam_type: q = q.filter(Result.exam_type == exam_type)
     results = q.all()
@@ -58,26 +59,34 @@ def list_results(class_name: Optional[str] = None, exam_type: Optional[str] = No
 @router.post("/")
 def add_result(data: ResultCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     grade = calculate_grade(data.marks_obtained, data.total_marks)
-    result = Result(**data.dict(), school_id=current_user.school_id, grade=grade)
+    # Take the school from the student, not the caller: a super admin has none,
+    # and this also blocks writing a result onto another school's student.
+    student = db.query(Student).filter(Student.id == data.student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    school_id = school_id_for_record(student.school_id, current_user)
+    result = Result(**data.dict(), school_id=school_id, grade=grade)
     db.add(result)
     db.commit()
     return {"message": "Result added", "grade": grade}
 
 @router.get("/student/{student_id}")
 def student_results(student_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    results = db.query(Result).filter(
-        Result.student_id == student_id,
-        Result.school_id == current_user.school_id
+    results = apply_school_scope(
+        db.query(Result).filter(Result.student_id == student_id),
+        Result.school_id, current_user,
     ).all()
     return results
 
 @router.get("/class-analysis")
 def class_analysis(class_name: str, exam_type: str,
                    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    results = db.query(Result).filter(
-        Result.school_id == current_user.school_id,
-        Result.class_name == class_name,
-        Result.exam_type == exam_type
+    results = apply_school_scope(
+        db.query(Result).filter(
+            Result.class_name == class_name,
+            Result.exam_type == exam_type,
+        ),
+        Result.school_id, current_user,
     ).all()
     if not results:
         return {"message": "No results found"}
