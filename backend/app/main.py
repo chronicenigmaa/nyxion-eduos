@@ -12,7 +12,7 @@ from app.core.database import engine
 from app.models import School, User, Student
 from app.core.database import Base
 from app.core.database import SessionLocal
-from app.core.database import get_db_location
+from app.core.database import get_db_location, ensure_schema_exists, DB_SCHEMA
 from app.core.config import settings
 from app.models.school import DEFAULT_FEATURES
 from app.models.school import normalize_feature_overrides
@@ -22,7 +22,7 @@ from app.models.subject import Subject
 from app.models.class_section import ClassSection
 from app.models.fee import Fee, FeeStatus
 from app.core.security import get_password_hash
-from sqlalchemy import inspect, text
+from sqlalchemy import func, inspect, text
 import json
 import logging
 from datetime import datetime
@@ -36,6 +36,7 @@ if not logger.handlers:
 
 
 DEMO_PASSWORD = "admin123"
+DB_STATUS = {"initialized": False, "error": None, "checked_at": None}
 DEMO_SCHOOLS = [
     {
         "code": "TCS001",
@@ -55,12 +56,6 @@ DEMO_SCHOOLS = [
     },
 ]
 DEMO_USERS = [
-    {
-        "email": "superadmin@nyxion.ai",
-        "full_name": "Nyxion Super Admin",
-        "role": UserRole.SUPER_ADMIN,
-        "school_code": None,
-    },
     {
         "email": "admin@tcs.edu.pk",
         "full_name": "TCS Admin",
@@ -82,16 +77,20 @@ DEMO_USERS = [
 ]
 
 
+def list_tables():
+    return set(inspect(engine).get_table_names(schema=DB_SCHEMA))
+
+
 def ensure_columns(table_name, column_specs):
     inspector = inspect(engine)
-    if table_name not in inspector.get_table_names():
+    if table_name not in inspector.get_table_names(schema=DB_SCHEMA):
         return
 
-    existing_columns = {column["name"] for column in inspector.get_columns(table_name)}
+    existing_columns = {column["name"] for column in inspector.get_columns(table_name, schema=DB_SCHEMA)}
     with engine.begin() as conn:
         for column_name, ddl in column_specs.items():
             if column_name not in existing_columns:
-                conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {ddl}"))
+                conn.execute(text(f'ALTER TABLE "{DB_SCHEMA}".{table_name} ADD COLUMN {column_name} {ddl}'))
 
 
 def get_postgres_enum_labels(table_name, column_name):
@@ -101,11 +100,18 @@ def get_postgres_enum_labels(table_name, column_name):
         JOIN pg_type t ON t.typname = c.udt_name
         JOIN pg_enum e ON e.enumtypid = t.oid
         WHERE c.table_name = :table_name
+          AND c.table_schema = :table_schema
           AND c.column_name = :column_name
         ORDER BY e.enumsortorder
     """)
     with engine.connect() as conn:
-        return [row[0] for row in conn.execute(query, {"table_name": table_name, "column_name": column_name}).fetchall()]
+        return [
+            row[0]
+            for row in conn.execute(
+                query,
+                {"table_name": table_name, "column_name": column_name, "table_schema": DB_SCHEMA},
+            ).fetchall()
+        ]
 
 
 def get_fee_pending_value():
@@ -121,10 +127,10 @@ def get_fee_pending_value():
 
 def ensure_school_schema():
     inspector = inspect(engine)
-    if "schools" not in inspector.get_table_names():
+    if "schools" not in inspector.get_table_names(schema=DB_SCHEMA):
         return
 
-    existing_columns = {column["name"] for column in inspector.get_columns("schools")}
+    existing_columns = {column["name"] for column in inspector.get_columns("schools", schema=DB_SCHEMA)}
     default_features_json = json.dumps(DEFAULT_FEATURES)
 
     with engine.begin() as conn:
@@ -238,6 +244,64 @@ def ensure_core_schema():
         conn.execute(text("UPDATE fees SET created_at = NOW() WHERE created_at IS NULL"))
 
 
+def ensure_super_admin():
+    """Guarantee at least one usable super admin login exists.
+
+    Runs in every environment, including production — a deploy that leaves the
+    platform with no way to sign in is the failure mode this prevents.
+    The password is only ever set when the account is created; an existing
+    account's password is never overwritten on restart.
+    """
+    db = SessionLocal()
+    try:
+        email = settings.SUPER_ADMIN_EMAIL.strip().lower()
+        existing = db.query(User).filter(func.lower(User.email) == email).first()
+
+        if existing:
+            changed = False
+            if existing.role != UserRole.SUPER_ADMIN:
+                existing.role = UserRole.SUPER_ADMIN
+                existing.school_id = None
+                changed = True
+            if not existing.is_active:
+                existing.is_active = True
+                changed = True
+            if changed:
+                db.commit()
+                logger.info("Bootstrap super admin %s re-activated/promoted", email)
+            else:
+                logger.info("Bootstrap super admin %s already present", email)
+            return
+
+        # If some other super admin exists, don't invent a second one.
+        other = db.query(User).filter(
+            User.role == UserRole.SUPER_ADMIN,
+            User.is_active == True,
+        ).first()
+        if other:
+            logger.info("Super admin already exists (%s); skipping bootstrap account", other.email)
+            return
+
+        using_default_password = settings.SUPER_ADMIN_PASSWORD == "admin123"
+        db.add(User(
+            email=email,
+            full_name=settings.SUPER_ADMIN_NAME,
+            hashed_password=get_password_hash(settings.SUPER_ADMIN_PASSWORD),
+            role=UserRole.SUPER_ADMIN,
+            school_id=None,
+            is_active=True,
+            must_change_password=settings.SUPER_ADMIN_FORCE_PASSWORD_CHANGE and using_default_password,
+        ))
+        db.commit()
+        logger.warning(
+            "Created bootstrap super admin %s%s",
+            email,
+            " with the DEFAULT password — change it immediately." if using_default_password else "",
+        )
+    finally:
+        db.close()
+
+
 def ensure_demo_data():
     db = SessionLocal()
     try:
@@ -251,36 +315,28 @@ def ensure_demo_data():
                 )
                 db.add(school)
                 db.flush()
-            else:
-                school.name = school_data["name"]
-                school.address = school_data["address"]
-                school.phone = school_data["phone"]
-                school.email = school_data["email"]
-                school.package = school_data["package"]
-                school.is_active = True
-                school.features = normalize_feature_overrides(school.package, school.features)
+            # NEVER mutate an existing school here. These demo schools may have
+            # been upgraded/edited by a real admin (e.g. TCS is on 'elite'), and
+            # re-seeding must not clobber their package, name, or features.
             schools_by_code[school_data["code"]] = school
 
         for user_data in DEMO_USERS:
             school = schools_by_code.get(user_data["school_code"]) if user_data["school_code"] else None
-            user = db.query(User).filter(User.email == user_data["email"]).first()
-            hashed_password = get_password_hash(DEMO_PASSWORD)
+            user = db.query(User).filter(func.lower(User.email) == user_data["email"].lower()).first()
             if not user:
-                user = User(
+                db.add(User(
                     email=user_data["email"],
                     full_name=user_data["full_name"],
-                    hashed_password=hashed_password,
+                    hashed_password=get_password_hash(DEMO_PASSWORD),
                     role=user_data["role"],
                     school_id=school.id if school else None,
                     is_active=True,
-                )
-                db.add(user)
-            else:
-                user.full_name = user_data["full_name"]
-                user.role = user_data["role"]
-                user.school_id = school.id if school else None
-                user.hashed_password = hashed_password
-                user.is_active = True
+                ))
+            elif user.school_id is None and school is not None:
+                # Only repair a missing school link. Never reset an existing
+                # account's password or role on restart — that would silently
+                # undo real password changes on every redeploy.
+                user.school_id = school.id
 
         db.commit()
     finally:
@@ -466,34 +522,84 @@ async def access_logger(request: Request, call_next):
 def initialize_database():
     location = get_db_location()
     logger.info(
-        "DB target env=%s driver=%s host=%s port=%s database=%s local=%s",
+        "DB target env=%s driver=%s host=%s port=%s database=%s schema=%s local=%s",
         settings.ENV,
         location["driver"],
         location["host"],
         location["port"],
         location["database"],
+        location["schema"],
         location["is_local"],
     )
     with engine.connect() as conn:
         conn.execute(text("SELECT 1"))
     logger.info("DB connectivity check passed")
 
+    ensure_schema_exists()
     Base.metadata.create_all(bind=engine)
     ensure_school_schema()
     ensure_core_schema()
-    if settings.ENV.lower() != "production":
+
+    # Always runs — production included. Without this a fresh database has
+    # tables but zero accounts, and nobody can sign in.
+    ensure_super_admin()
+
+    if settings.SEED_DEMO_DATA:
         ensure_demo_data()
         ensure_demo_records()
         logger.info("Demo seed initialization completed")
     else:
-        logger.info("Skipping demo seed initialization in production")
+        logger.info("SEED_DEMO_DATA is off; skipping demo schools/students")
+
     logger.info("DB schema/data initialization completed")
 
 
 @app.on_event("startup")
 def on_startup():
-    initialize_database()
+    try:
+        initialize_database()
+        DB_STATUS.update({"initialized": True, "error": None, "checked_at": datetime.utcnow().isoformat()})
+    except Exception as exc:
+        # Boot anyway so /health/db can report *why* the database is empty
+        # instead of the container crash-looping with no visible reason.
+        DB_STATUS.update({"initialized": False, "error": str(exc), "checked_at": datetime.utcnow().isoformat()})
+        logger.exception("Database initialization FAILED — the API is up but unusable until this is fixed")
+
 
 @app.get("/health")
 def health():
     return {"status": "ok", "app": "Nyxion EduOS"}
+
+
+@app.get("/health/db")
+def health_db():
+    """Diagnose an empty or unreachable database without shell access."""
+    location = get_db_location()
+    payload = {
+        "env": settings.ENV,
+        "target": location,
+        "initialized": DB_STATUS["initialized"],
+        "error": DB_STATUS["error"],
+        "checked_at": DB_STATUS["checked_at"],
+    }
+    try:
+        inspector = inspect(engine)
+        tables = sorted(inspector.get_table_names(schema=DB_SCHEMA))
+        payload["tables"] = tables
+        payload["table_count"] = len(tables)
+        if "users" in tables:
+            db = SessionLocal()
+            try:
+                payload["user_count"] = db.query(User).count()
+                payload["super_admin_count"] = db.query(User).filter(
+                    User.role == UserRole.SUPER_ADMIN,
+                    User.is_active == True,
+                ).count()
+                payload["school_count"] = db.query(School).count()
+            finally:
+                db.close()
+        payload["reachable"] = True
+    except Exception as exc:
+        payload["reachable"] = False
+        payload["error"] = str(exc)
+    return payload

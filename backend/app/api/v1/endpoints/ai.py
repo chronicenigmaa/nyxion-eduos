@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.models.user import User
 from app.models.school import School, get_school_features
 from app.api.v1.endpoints.auth import get_current_user
+from app.core.config import settings
 from app.core.database import get_db
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -66,17 +67,33 @@ TYPE_FEATURE_MAP = {
     "announcement": "notice_writer",
 }
 
+GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
+
+
+def _api_key() -> str:
+    # settings reads GROQ_API_KEY from the environment; os.getenv is kept as a
+    # fallback so a key injected after import still works.
+    return settings.GROQ_API_KEY or os.getenv("GROQ_API_KEY", "")
+
+
+def ai_configured() -> bool:
+    return bool(_api_key())
+
+
 async def call_ai(system: str, prompt: str, max_tokens: int = 2048) -> str:
-    api_key = os.getenv("GROQ_API_KEY", "")
+    api_key = _api_key()
     if not api_key:
-        raise HTTPException(status_code=503, detail="AI service not configured. Set GROQ_API_KEY in Railway.")
+        raise HTTPException(
+            status_code=503,
+            detail="AI service not configured. Set GROQ_API_KEY in the backend environment.",
+        )
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
+                GROQ_ENDPOINT,
                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
                 json={
-                    "model": "llama-3.3-70b-versatile",
+                    "model": settings.GROQ_MODEL,
                     "messages": [
                         {"role": "system", "content": system},
                         {"role": "user", "content": prompt}
@@ -85,14 +102,43 @@ async def call_ai(system: str, prompt: str, max_tokens: int = 2048) -> str:
                     "temperature": 0.7
                 }
             )
-            result = response.json()
-            if "choices" not in result:
-                raise HTTPException(status_code=503, detail=f"AI error: {result}")
-            return result["choices"][0]["message"]["content"]
-    except HTTPException:
-        raise
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="The AI request timed out. Please try again.")
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"AI error: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"Could not reach the AI service: {e}")
+
+    if response.status_code == 401:
+        raise HTTPException(status_code=503, detail="AI rejected the API key. Check GROQ_API_KEY.")
+    if response.status_code == 429:
+        raise HTTPException(status_code=429, detail="AI rate limit reached. Please wait a moment and retry.")
+
+    try:
+        result = response.json()
+    except Exception:
+        raise HTTPException(status_code=503, detail=f"AI returned an unreadable response ({response.status_code}).")
+
+    if "choices" not in result:
+        message = (result.get("error") or {}).get("message") if isinstance(result, dict) else None
+        raise HTTPException(status_code=503, detail=f"AI error: {message or result}")
+
+    return result["choices"][0]["message"]["content"]
+
+
+@router.get("/health")
+async def ai_health(current_user: User = Depends(get_current_user)):
+    """Report whether AI features can actually run, and prove it with a live call."""
+    if not ai_configured():
+        return {
+            "configured": False,
+            "reachable": False,
+            "model": settings.GROQ_MODEL,
+            "detail": "GROQ_API_KEY is not set on the backend.",
+        }
+    try:
+        await call_ai("Reply with the single word: ok", "ping", max_tokens=5)
+        return {"configured": True, "reachable": True, "model": settings.GROQ_MODEL, "detail": "AI is responding."}
+    except HTTPException as exc:
+        return {"configured": True, "reachable": False, "model": settings.GROQ_MODEL, "detail": exc.detail}
 
 def check_feature(school: Optional[School], feature: str) -> bool:
     if not school:

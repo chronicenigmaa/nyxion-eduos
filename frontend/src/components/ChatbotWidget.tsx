@@ -81,7 +81,8 @@ export default function ChatbotWidget() {
       })
       setMessages([...newMessages, { role: 'assistant', content: data.response }])
     } catch (e) {
-      setMessages([...newMessages, { role: 'assistant', content: 'Something went wrong. Please try again.' }])
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setMessages([...newMessages, { role: 'assistant', content: detail || 'Something went wrong. Please try again.' }])
     } finally {
       setLoading(false)
     }

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import toast from "react-hot-toast";
 import Image from "next/image";
+import Link from "next/link";
 
 type ApiError = { response?: { data?: { detail?: string } } };
 
@@ -56,6 +57,10 @@ export default function LoginPage() {
     }
   };
 
+  // Demo shortcuts advertise a shared password, so they stay off unless
+  // NEXT_PUBLIC_SHOW_DEMO_LOGINS=true is set explicitly (e.g. on a demo deploy).
+  const showDemoLogins = process.env.NEXT_PUBLIC_SHOW_DEMO_LOGINS === "true";
+
   const demoLogins = [
     { label: "Super Admin", email: "superadmin@nyxion.ai" },
     { label: "TCS Admin",   email: "admin@tcs.edu.pk" },
@@ -107,7 +112,14 @@ export default function LoginPage() {
                 placeholder="admin@school.edu.pk" required />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">{requirePasswordChange ? "Current Password" : "Password"}</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-sm font-medium text-slate-700">{requirePasswordChange ? "Current Password" : "Password"}</label>
+                {!requirePasswordChange && (
+                  <Link href="/forgot-password" className="text-sm font-medium text-blue-600 hover:text-blue-700">
+                    Forgot password?
+                  </Link>
+                )}
+              </div>
               <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                 placeholder="password" required />
@@ -133,7 +145,7 @@ export default function LoginPage() {
               {loading ? (requirePasswordChange ? "Updating..." : "Signing in...") : (requirePasswordChange ? "Update Password" : "Sign In")}
             </button>
           </form>
-          {!requirePasswordChange && (
+          {!requirePasswordChange && showDemoLogins && (
           <div className="mt-8">
             <p className="text-slate-400 text-xs text-center mb-3">Demo accounts - password: admin123</p>
             <div className="grid grid-cols-2 gap-2">

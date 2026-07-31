@@ -11,8 +11,40 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://nyxion:nyxion123@localhost:5433/nyxion"
     REDIS_URL: str = "redis://localhost:6379"
 
+    # Postgres schema that owns every EduOS table. Keep this off "public" when
+    # the database is shared with another app (e.g. LearnSpace) so the two
+    # cannot collide on common table names like users / schools.
+    DB_SCHEMA: str = "public"
+
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "llama3.2"
+
+    # ── AI (Groq) ────────────────────────────────────────────────────────────
+    GROQ_API_KEY: str = ""
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+
+    # ── Bootstrap super admin ────────────────────────────────────────────────
+    # Guarantees at least one usable login exists after a fresh deploy.
+    # The password is only applied when the account is first created; later
+    # password changes are never overwritten on restart.
+    SUPER_ADMIN_EMAIL: str = "superadmin@nyxion.ai"
+    SUPER_ADMIN_PASSWORD: str = "admin123"
+    SUPER_ADMIN_NAME: str = "Nyxion Super Admin"
+    # Force a password change on first login when using the default password.
+    SUPER_ADMIN_FORCE_PASSWORD_CHANGE: bool = True
+
+    # Seed the demo schools / teachers / students / fees.
+    # OFF by default: the live database already contains real schools and a real
+    # customer, and re-seeding must never mutate or pollute that data. Only turn
+    # this on against a genuinely fresh, empty database.
+    SEED_DEMO_DATA: bool = False
+
+    # ── Password reset email ─────────────────────────────────────────────────
+    FRONTEND_URL: str = "https://nyxion-eduos.vercel.app"
+    RESEND_API_KEY: str = ""
+    MAIL_FROM: str = "onboarding@resend.dev"
+    MAIL_FROM_NAME: str = "Nyxion EduOS"
+    RESET_TOKEN_EXPIRE_MINUTES: int = 60
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
@@ -22,7 +54,17 @@ class Settings(BaseSettings):
             return "postgresql://" + value[len("postgres://"):]
         return value
 
+    @field_validator("FRONTEND_URL", mode="before")
+    @classmethod
+    def strip_trailing_slash(cls, value: str) -> str:
+        return value.rstrip("/") if isinstance(value, str) else value
+
+    @property
+    def is_production(self) -> bool:
+        return self.ENV.strip().lower() in {"production", "prod"}
+
     class Config:
         env_file = ".env"
+        extra = "ignore"
 
 settings = Settings()

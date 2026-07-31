@@ -12,3 +12,4 @@ from app.models.submission import Submission
 from app.models.result import Result
 from app.models.coursebook import CourseBook
 from app.models.timetable import TimetableEntry
+from app.models.password_reset import PasswordResetToken
