@@ -11,10 +11,12 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://nyxion:nyxion123@localhost:5433/nyxion"
     REDIS_URL: str = "redis://localhost:6379"
 
-    # Postgres schema that owns every EduOS table. Keep this off "public" when
-    # the database is shared with another app (e.g. LearnSpace) so the two
-    # cannot collide on common table names like users / schools.
-    DB_SCHEMA: str = "public"
+    # Postgres schema that owns every EduOS table. Defaults to "eduos", not
+    # "public": the database is shared with LearnSpace and both define tables
+    # named users/events, so "public" silently puts EduOS's data somewhere the
+    # deployed app (which sets DB_SCHEMA=eduos) never reads. Tools run without
+    # this variable used to land in the wrong schema entirely.
+    DB_SCHEMA: str = "eduos"
 
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "llama3.2"

@@ -31,7 +31,7 @@ sys.path.append(".")
 
 from sqlalchemy import text
 
-from app.core.database import (
+from app.core.database import (  # noqa: F401
     Base, DB_SCHEMA, SessionLocal, engine, ensure_schema_exists, get_db_location,
 )
 from app.core.security import get_password_hash
@@ -119,10 +119,26 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Seed a full EduOS demo school.")
     parser.add_argument("--wipe", action="store_true",
                         help="DELETE ALL existing data first. Irreversible.")
+    parser.add_argument("--allow-public-schema", action="store_true",
+                        help="Permit seeding into the 'public' schema. Almost always wrong.")
     args = parser.parse_args()
 
     location = get_db_location()
     print(f"Target: {location['host']}/{location['database']} schema={location['schema']}")
+
+    # Seeding into "public" silently writes where the deployed app never looks,
+    # because it runs with DB_SCHEMA=eduos. That failure is invisible: the
+    # script reports success and every login still fails.
+    if DB_SCHEMA == "public" and not args.allow_public_schema:
+        print(
+            "\nRefusing to run against the 'public' schema.\n"
+            "EduOS runs with DB_SCHEMA=eduos, so anything seeded into 'public' "
+            "is invisible to the app.\n\n"
+            "  DATABASE_URL=... DB_SCHEMA=eduos python seed_demo.py --wipe\n\n"
+            "Pass --allow-public-schema only if you genuinely mean 'public'.",
+            file=sys.stderr,
+        )
+        return 1
 
     ensure_schema_exists()
     Base.metadata.create_all(bind=engine)
